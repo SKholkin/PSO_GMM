@@ -1,0 +1,253 @@
+\documentclass[a4paper]{article} 
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{amssymb}
+\usepackage{hyperref} 
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{amsmath}
+\usepackage{theoremref}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+
+
+\titlespacing*{\section}
+{0pt}{5.5ex plus 1ex minus .2ex}{4.3ex plus .2ex}
+
+\setcounter{secnumdepth}{0} 
+
+\geometry{
+a4paper,
+total={170mm,257mm},
+left=25mm,
+top=20mm,
+}
+
+\title{NLA/BMML final project proposal}
+\author{Sergei.Kholkin@skoltech.ru}
+
+\begin{document}
+
+\section{Abstract}
+
+Gaussian Mixture Models (GMM), commonly used in pattern recognition and machine learning, provide
+a flexible probabilistic model for the data. Conventional algorithm for maximum llikelihood estimation of parameters 
+is called Experctation-Minimization (EM) provides fixed point iteration procedure, 
+not global optimal in general case and strongly depends on initialization. Stochastic search algorithms
+ and in particular particle swarm optimization (PSO) are quite
+popular alternative for global optimization and have been already used for optizing GMM. 
+Our contribution is that we suggest new covariance matrix parametrization that allows us to succesfully apply PSO for optimizing parameters of GMM.
+
+\section{Intoduction}
+
+\section{GMM parameters estimation}
+
+Provide statement for GMM:
+We consider a family of mixture of K multivariate Gaussian distributions in $\mathbb{R}^d$ that are
+ parametrized as follows: $\theta = \{w_1, w_2, .., w_K, \mu_1, \Sigma_1, .., \mu_K, \Sigma_K\}$. 
+ Where $\{\mu_i, \Sigma_i\}$ is parametrization of ith multivariate Gaussian distribution, 
+ $\mu_k \in \mathbb{R}^d$ is vector of means and covariance matrix $\Sigma_k \in \mathbb{S}^d_{++}$ where 
+ $\mathbb{S}^d_{++}$ is a set of symmetric positive definite $d \times d$ matrices and $w_k \in [0, 1]$ 
+ is a weight of each gaussian distribution and $\sum_{k=1}^K w_k=1$.
+ Given a set of data $X = \{x_1, .., x_n\}, x_i \in \mathbb{R}^d$ which are i.i.d. Mixture probability desnity function is 
+ $p(x | \theta) = \sum_{k=1}^K w_k p_k(x | \mu_k, \Sigma_k)$. Our objective is to obtain maximum likelihood estimation of $\theta$
+ through maximizing log-likelihood function:
+ $$log(X | \theta) = \sum_{i=1}^N log (\sum_{k=1}^K w_k p_k(x_i | \mu_k, \Sigma_k))$$
+
+ Since this functional is not convex we don't have covinient algorithm for obtaining global maxima.
+
+\section{Expectation Maximization}
+
+Conventional algorithm for maximizing log-likelihood is Expectation-Minimization(EM). We do add latent variables to the model
+$Z = \{z_1, .., z_n\}, z_i \in \mathbb{Z}[0, k]$, $z_i =k$ if $x_i$ was generated from kth Gaussian component. Then we do add 
+probability $z_{ik} = q(z_i=k) = p(z_i=k|x_i, \mu_k, \Sigma_k)$ that $x_i$ was generated  from kth Gaussian component and
+ reformulate out model and log-likelihood function considering that varibales.
+ $$logp(X | \theta) = \mathbb{E}_{q(z)}[log\frac{p(X, Z| \theta)}{q(z)}] + KL(q || p)$$
+Since $KL(q || p) \geq 0$ we get that $logp(X | \theta) \geq  \mathbb{E}_{q(z)}[log\frac{p(X, Z| \theta)}{q(z)}]$.
+ $\mathbb{E}_{q(z)}[log\frac{p(X, Z| \theta)}{q(z)}] = \mathcal{L}(q, \theta)$ is
+ called Evidencce Lower Bound (ELBO) and we do optimize it instead of $logp(X | \theta)$. Then consider fixed point iteration:
+
+ For fixed $\theta^{(t)}$, whete $t$ is the number of iteration:
+ $$q(Z)^{(t+1)} = argmax_{q}\mathcal{L}(q, \theta^{(t)}) = p(Z | X, \theta^{(t)})$$ 
+ $$z_{ik}^{(t+1)} = q(z_i=k)^{(t+1)} = \frac{w_k^{(t)}p_k(x_i, \theta_k^{(t)})}{\sum_{j=1}^Kw_j^{(t)}p_j(x_i, \theta_j^{(t)})}$$
+
+ Then for fixed $q(Z)^{(t+1)}$
+
+$$\theta^{(t+1)} = argmax_{\theta}\mathcal{L}(q^{(t+1)}, \theta) = argmax_{\theta}\mathbb{E}_{q(z)}logp(X, Z|\theta)$$
+
+That leads up to update of parameters:
+$$w_{k}^{(t+1)} = \frac{1}{N}\sum_{i=1}^{N}z_{ik}^{(t+1)}$$
+$$\mu_k^{(t+1)} = \frac{\sum_{i=1}^Nz_{ik}^{(t+1)} x_i}{\sum_{i=1}^Nz_{ik}^{(t+1)}}$$
+$$\Sigma_k^{(t+1)} = \frac{\sum_{i+1}^Nz_{ik}(x_i - \mu_k^{(t+1)})(x_i - \mu_k^{(t+1)})^T}{\sum_{i+1}^Nz_{ik}}$$
+
+After a number of iteration EM converge and one the EM problems is that it strongly depend on initialization.
+
+\section{Particle swarm optimization}
+
+Particle swarm optimization (PSO) is a population-based stochastic search algorithm that is
+inspired by the social interactions of swarm animals. In PSO each member of a polutaion is called particle. We have some function we want to optimize 
+$f(X_{\theta}), X_{\theta} \in \mathbb{R}^d$. Each particle is represented as two vectors: $X_i = \{X_{(\theta, i)}, x_{v}\}, X_{\theta}, x_{v} \in \mathbb{R}^d$ parameters and velocity respectively.
+ Parameters part is 
+ the candidate solution that particle does represent and velocity is the part used for defining optimization step. We can evaluate 
+ criterion value for each particle $f(X_{(\theta, i)})$. As the optimization prcodure we do iterative updates. 
+ At the each iteration we do remember the particle position that does have the best criterion among all the particle positions among all the iterations
+  (global best) and is denoted as $X^{(GB, t)}$. Also through the search each particle remebers its personal best position 
+  $f(X^{(PB, t)}_i) \geq f(X_{\theta, i}), i \in {1,..,i_{last}}$
+
+We start from initializing particles by some way, choosing $X^{(GB, 1)}$ and $X^{(PB, 1)}_i$ and then we do run optimization steps as follows:
+$$X_{v, i}^{(t+1)} = \eta X_{v, i}^{(t)} + c_1 U_1^{(t)}(X^{(PB, t)}_{i} - X_{(\theta, i)}) + c_2 U_2^{(t)}(X^{(GB, t)} - X_{(\theta, i)})$$
+$$X_{(\theta , i)}^{(t+1)} = X_{(\theta , i)}^{(t)} + X_{v, i}^{(t+1)}$$
+$$X^{(PB, t + 1)}_{i} = X^{(PB, t^*)}_{i},  t* = argmax_{t}f(X^{(PB, t)}_{i})$$
+$$X^{(GB, t + 1)} = X^{(GB, t^*)}_{\theta, i},  t* = argmax_{t}f(X^{(GB, t)}_i)$$
+
+Where $\eta$ is inertia coefficient, $c_1$ and $c_2$ are acceleration weights, $U_1, U_2 \sim U[0, 1]$ random numbers
+ and $t$ is iteration number. 
+We have some function we want to optimize.
+
+\section{PSO for GMM}
+
+We do want apply PSO for optimizing GMM. Every particle parameters part will be representing full GMM candidate solution
+ $X_{(\theta, i)} = \{w_1, w_2, .., w_K, \mu_1, \Sigma_1, .., \mu_K, \Sigma_K\}_i$. 
+ But we would need to maintain 
+ positive definite constraint on covariance matrix $\Sigma \in \mathbb{S}^d_{++}$ and PSO update doesn't necessary do it.
+ $\Sigma_{new} = \Sigma_1 + (\Sigma_2 - \Sigma_3)$ may not be positive definite. 
+ Then to perform optimization on the manifold of positive definite matrices lets consider some parametrization
+ of covariance matrix $\Sigma = g(\vartheta)$ so that changing $g(\vartheta) \in \mathbb{S}^d_{++}, \forall \vartheta \in \mathbb{R}^m$.
+ One possible parametrization is Cholesky decomposition $\Sigma = LL^T$ but as a result we have $\frac{d(d+1)}{2}$ parameters which
+ are unbounded, can have very diverse values $(-\infty, +\infty)$ and that doesn't allow us to properly optimze. Another parametrization through eigenvalues and givens rotation matrix angles 
+ was presented in \cite{ARI20122804}.
+
+ \subsection{Eigenvalue and Givens rotation matrix angles parametrization}
+
+ \begin{theorem}\thlabel{theorem_1}
+    An arbitary covariance matrix with $\frac{d(d+1)}{2}$ degrees of freedom can be parametrized by using $d$ eigenvalues in a particular order
+    and $\frac{d(d-1)}{2}$ Givens rotation matrix angles $\phi^{pq} \in [-\pi/4, 3\pi/4]$ for $1 \leq p < q \leq d$ computed from the eigenvector matrix whose columns
+    store the eigenvectors in the same order as the corresponding eigenvalues.
+ \end{theorem}
+
+\begin{lemma}\thlabel{lemma_1}
+    An eigenvactor matrix $V \in \mathbb{R}^{d \times d}$ can be written as a product of $\frac{d(d-1)}{2}$
+    Givens rotation matrices with angles $\phi^{pq} \in [-\pi/4, 3\pi/4]$ and a diagonal matrix with $\pm1$ entries.
+\end{lemma}
+
+ For proof see \cite{ARI20122804}. $\Sigma \in \mathbb{S}^d_{++}$ is symmetrid hence it is diagonizable in orthogonal 
+ basis and we can represent it as  $\Sigma =V \Lambda V^T= \sum_{i=1}^d\lambda_iv_iv_i^T$.
+ Regarding \thref{lemma_1} that we don't need to store the diagonal matrix $\pm 1$ entries 
+ because $v_iv_i^T = (-v_i)(-v_i)^T$. Then we can construct our covariance matrix as 
+ $\Sigma = V \Lambda V^T= \sum_{i=1}^d\lambda_iv_iv_i^T = \sum_{i=1}^d\lambda_i\prod_{p=1}^{d}\prod_{q=p+1}^{d}G(p, q, \phi^{pq})$,
+  where $G(p, q, \phi^{pq})$ is Givens rotaion matrix with for dimensions $p$ and $q$ with $\phi^{pq}$ rotation angle.
+  Also notice since our eigendecomposition is unique up to eigenvalues/eigenvectors permutation
+   so we need to maintain order of eigenvalues and corresponding Givens rotation angles after making the decomposition.
+   To tackle this issue authors proposed algorithm of eigenvectors ordering w.r.t. reference eigenvectors matrix $V_{ref}$
+   which happens to be the personal best for each particle. 
+
+    Algorithm with such parametrization stated as follows:
+    \begin{algorithm}
+   \caption{}\label{alg:cap}
+   \hspace*{\algorithmicindent} \textbf{Input: d-dimensional dataset with N samples, number of iterations $T_1$, 
+   number of iteration for EM local convergence $T_2$, number of components $K$, number of particles $M$,  
+   PSO hyperparameters $\eta, c_1, c_2$} \\
+   \hspace*{\algorithmicindent} \textbf{Output: GMM solution $\{w_1, w_2, .., w_K, \mu_1, \Sigma_1, .., \mu_K, \Sigma_K\}$} 
+   \begin{algorithmic}
+
+    \For{$t = 1$ to $T_1$}
+        \For{$m=1$ to $M$}
+            \State Construct K eigenvalue matrices
+            \State  Construct K eigenvector matrices by multiplying
+            Givens rotation angles
+            \State Run EM for local convergence for $T_2$ iterations {$T_2$:
+            number of EM iterations for each PSO iteration}
+            \State Compute K eigenvalue and eigenvector matrices via
+            singular value decomposition of new covariance matrices
+            \State Reorder eigenvalues and eigenvectors of each
+            covariance matrix according to personal best
+            \State Extract Givens rotation angles using QR factorization
+            \State Replace particle’s means, eigenvalues, and angles
+            \State Calculate log-likelihood
+            \State Update personal best
+        \EndFor
+        \State Update global best
+        \For{$m=1$ to $M$}
+            \State Update particle’s means, eigenvalues, and angles
+        \EndFor
+    \EndFor
+    \end{algorithmic}
+    \end{algorithm}
+
+But this parametrization still have a problem since it has $\frac{d(d+1)}{2}$ parameters and we need to compute SVD 
+and QR factorication for each Gaussian covariance matrix for each particle for each iteration.
+
+\subsection{Low rank delta parametrization}
+
+We propose novel method of parametrization not the covariance matrix but the addition to it. $\Sigma_{new}  = \Sigma + \Delta(\vartheta)$. 
+Using property that for $\Sigma_1, \Sigma_2 \in \mathbb{S}^d_{++}$ holds true $\Sigma_1 + \Sigma_2 \in \mathbb{S}^d_{++}$.
+We choose such $\Delta$ that $\Delta(\vartheta) \in \mathbb{S}^d_{++}, \forall \vartheta \in R^m$. 
+Than we get that that $\Sigma + \Delta(\vartheta) \in \mathbb{S}^d_{++}$.
+
+Let's try to avoid $\frac{d(d+1)}{2}$ parameters for covariance matrix. We can do that by making low rank addition,
+ in other words making $\Delta$ such that $rank(\Delta(\vartheta)) < d$ and 
+ hence we can lower number of dimensions for $\vartheta$ so that $\vartheta \in \mathbb{R}^{m}, m < \frac{d(d+1)}{2}$.
+
+ We propose low rank delta parametrization satisfying all the above requirements as follows:
+ $$\Sigma_{new}  = \Sigma + diag(a_1^2, .., a_d^2) + \sum_{i=1}^{R}b_ib_i^T$$
+
+ Notice that $diag(a_1^2, .., a_d^2) \in \mathbb{S}^d_{++}, \forall a_i \in R$ and $b_ib_i^T \in \mathbb{S}^d_{++}, \forall b_i \in \mathbb{R}^{d}$. 
+ $rank(\sum_{i=1}^{R} b_ib_i^T) \leq R$ for approximating parameters of covariance matrix and 
+ $diag(a_1^2, .., a_d^2)$ because we need special attention to diagonal elements. 
+ Total number of parameters is $(R + 1)d$. For the initialization we run EM alogorithm and get 
+ $\{w_1, w_2, .., w_K, \mu_1, \Sigma_1, .., \mu_K, \Sigma_K\}$ parameters, we freeze $\Sigma_{(i, base)}$, 
+ and set ${w_1, w_2, .., w_K, \mu_1, .., \mu_K}$ as particle initial parameters. 
+ Then we randomly initialize low rank addition $a_i \sim N(0, \sigma_1)$ and $b_i \sim N(0, \sigma_2 I_d)$ and 
+ compute covariance matrices for each Gaussian for mth particle as 
+ $\Sigma_{(i, m)} = \Sigma_{(i, base)} + diag(a_{(1, m)}^2, .., a_{(d, m)}^2) + \sum_{i=1}^{R}b_{(i, m)}b_{(i, m)}^T$. 
+
+ Then PSO algorithm with such a parametrization will look as follows:
+ \begin{algorithm}
+    \caption{}\label{alg:cap}
+    \hspace*{\algorithmicindent} \textbf{Input: d-dimensional dataset with N samples, number of iterations $T$, number of initial EM iterations $T_{EM}$, 
+    number of components $K$, number of particles $M$, rank of addition $R$,
+    PSO hyperparameters $\eta, c_1, c_2$} \\
+    \hspace*{\algorithmicindent} \textbf{Output: GMM solution $\{w_1, w_2, .., w_K, \mu_1, \Sigma_1, .., \mu_K, \Sigma_K\}$} 
+    \begin{algorithmic}
+    \State run EM for $T_{EM}$ iterations
+    \For{$m=1$ to $M$}
+        \State $a^{(0)}\sim N(0, \sigma_1I_d)$ \Comment{Initialize parameters for particles}
+        \For{$r=1$ to $R$}
+            \State $b^{(0)}_r \sim N(0, \sigma_2 I_d)$
+        \EndFor
+    \EndFor
+    
+     \For{$t = 1$ to $T$}
+         \For{$m=1$ to $M$}
+            \State Calculate covariance matrices using low rank addition parameters
+            \State Calculate log-likelihood
+            \State Update personal best
+         \EndFor
+         \State Update global best
+         \For{$m=1$ to $M$}
+            \State Update particle's $\mu_m^{(t)}, w_m^{(t)}, a_m^{(t)}, b_m^{(t)}$
+         \EndFor
+     \EndFor
+     \end{algorithmic}
+     \end{algorithm}
+ 
+\begin{enumerate}
+    \item Additional words about sparsity and non spherical gaussians
+\end{enumerate}
+
+\section{Experiments}
+
+\begin{enumerate}
+    \item Synthetic data
+    \item Real world data
+    \item High dim benchmarking
+\end{enumerate}
+
+\bibliographystyle{plain}
+\bibliography{references}
+\end{document}
