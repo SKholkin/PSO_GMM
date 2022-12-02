@@ -299,6 +299,34 @@ Resulting algorithm will be as follows:
 
 \subsection{Synthetic Data}
 
+We'll use model of generatin synthtic data from \cite{ARI20122804}. Data sets will be generated from some Gaussian Mixture Model itself with
+ various dimenstions $d \in \{5, 10, 15, 25, 35, 50, 70\}$, number of components will be $M \in \{5, 10, 15, 20\}$, with sample size $N \in \{500, 1000, 2000\}$.
+Procedure of generating data sets will be as follows:
+
+\begin{algorithm}
+    \caption{}\label{alg:cap}
+    \hspace*{\algorithmicindent} \textbf{Input: dimensionality $d$, number of components $M$, number of samples $N$} \\
+    \hspace*{\algorithmicindent} \textbf{Output: $\{x_1, x_2, .., x_N\}$, where $x_i \in \mathbb{R}^d$}
+    \begin{algorithmic}
+        \State $w \sim U[0, 1]^d$
+        \State $w := w / \sum_{i=1}^d w_i$
+        \For{$m=1$ to $M$}
+            \State $\mu_m \sim U[0, 100]^d$
+            \For{$i=1$ to $d$}
+                \State $\lambda_j  \sim U[1, 16]$ \Comment{Sample eigenvalues}
+                \For{$j=i + 1$ to $d$}
+                    \State $\phi_{(p,q)} \sim U[-\pi/4, 3\pi/4]$ \Comment{Sample Givens rotation angles}
+                \EndFor
+                \State
+            \State $\Sigma_m = f(\lambda_1, .., \lambda_d, \phi_{(1, 1)}, \phi_{(d, d)})$ \Comment{Constrcut covariance matrix from Givens rotation angles and eigenvalues}
+            \EndFor
+            \State Sample $x_1, .., x_N$ from $M$ Gaussian Mixtures w.r.t. $w$ 
+        \EndFor 
+        \State \Return $x_1, .., x_N$
+    \end{algorithmic}
+\end{algorithm}
+
+
 \begin{center}
     \begin{tabular}{||c c c c c||} 
      \hline
