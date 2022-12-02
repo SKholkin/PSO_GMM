@@ -35,7 +35,7 @@ top=20mm,
 
 \section{Abstract}
 
-Gaussian Mixture Models (GMM), commonly used in pattern recognition and machine learning, provide
+Gaussian Mixture Models (GMM), commonly used in pattern recognition and machine learning, providing
 a flexible probabilistic model for the data. Conventional algorithm for maximum llikelihood estimation of parameters 
 is called Experctation-Minimization (EM) provides fixed point iteration procedure, 
 not global optimal in general case and strongly depends on initialization. Stochastic search algorithms
@@ -206,6 +206,8 @@ Let's try to avoid $\frac{d(d+1)}{2}$ parameters for covariance matrix. We can d
  compute covariance matrices for each Gaussian for mth particle as 
  $\Sigma_{(i, m)} = \Sigma_{(i, base)} + diag(a_{(1, m)}^2, .., a_{(d, m)}^2) + \sum_{i=1}^{R}b_{(i, m)}b_{(i, m)}^T$. 
 
+ Then PSO particle will contain parameters as follows: $\{ w_1, w_2, .., w_K, \mu_1, .., \mu_K, a_1, .., a_d, b_1, .., b_r\}$
+
  Then PSO algorithm with such a parametrization will look as follows:
  \begin{algorithm}
     \caption{}\label{alg:cap}
@@ -233,20 +235,145 @@ Let's try to avoid $\frac{d(d+1)}{2}$ parameters for covariance matrix. We can d
             \State Update particle's $\mu_m^{(t)}, w_m^{(t)}, a_m^{(t)}, b_m^{(t)}$
          \EndFor
      \EndFor
+     \State \Return Global best
      \end{algorithmic}
      \end{algorithm}
- 
+
+\subsection{Low rank delta parametrization for PSO with EM reinit}
+
+EM is still very effictive algo to search for a local minima so let's try to utilize it inside our PSO framework. 
+Unfortunately we are not able to extract our parametrization from covariance matrix in a unique way so we won't have an 
+opportunity to init EM using constructed from PSO particles parameters weights, means and covariance matrices, then run EM 
+and construct PSO particle back using resulting EM weights, means and cavariances. So let's try to use PSO optimization as a proxy metric.
+Then we'd have criterion corresponding to each PSO particle parametrization itself,
+$\theta_{pso} = \{w_1, w_2, .., w_K, \mu_1, .., \mu_K, a_1, .., a_d, b_1, .., b_r\}$, from $\theta_{pso}$  we'll construct GMM parameters $\theta$ in a deterministic way
+$\theta_{pso} = \{w_1, w_2, .., w_K, \mu_1, .., \mu_K, a_1, .., a_d, b_1, .., b_r\} \rightarrow \{w_1, w_2, .., w_K, \mu_1, \Sigma_1, .., \mu_K, \Sigma_K\} = \theta$. 
+$log p(x | \theta)$ will be criterion corresponding to each PSO particle parametrization itself. And we are able to launch EM starting from 
+$\theta$ and obtain new set of GMM parameters $\theta_{EM}$. $EM(init=\theta) = \theta_{EM}$ and corresponding criterion will be $logp(x |\theta_{EM})$.
+So we'll optimize using PSO w.r.t. first criterion but we'll evaluate second criterion and output as an alogrithm result parameters $\theta_{EM}$.
+
+Resulting algorithm will be as follows:
+
+\begin{algorithm}
+    \caption{}\label{alg:cap}
+    \hspace*{\algorithmicindent} \textbf{Input: d-dimensional dataset with N samples, number of iterations $T$, number of initial EM iterations $T_{EM}$, 
+    number of components $K$, number of particles $M$, rank of addition $R$,
+    PSO hyperparameters $\eta, c_1, c_2$} \\
+    \hspace*{\algorithmicindent} \textbf{Output: GMM solution $\{w_1, w_2, .., w_K, \mu_1, \Sigma_1, .., \mu_K, \Sigma_K\}$} 
+    \begin{algorithmic}
+    \State run EM for $T_{EM}$ iterations
+    \For{$m=1$ to $M$}
+        \State $a^{(0)}\sim N(0, \sigma_1I_d)$ \Comment{Initialize parameters for particles}
+        \For{$r=1$ to $R$}
+            \State $b^{(0)}_r \sim N(0, \sigma_2 I_d)$
+        \EndFor
+    \EndFor
+    
+     \For{$t = 1$ to $T$}
+         \For{$m=1$ to $M$}
+            \State Calculate covariance matrices using low rank addition parameters
+            \State Calculate log-likelihood
+            \State Update personal best
+         \EndFor
+         \State Update global best
+         \For{$m=1$ to $M$}
+            \State Update particle's $\mu_m^{(t)}, w_m^{(t)}, a_m^{(t)}, b_m^{(t)}$
+         \EndFor
+     \EndFor
+     
+     \For{$m=1$ to $M$}
+        \State Calculate covariance matrices using low rank addition parameters for each particle's personal best
+        \State $\theta_{EM}$ = EM($\{w_{1, m}^{(PB)}, w_{2, m}^{(PB)}, .., w_{K, m}^{(PB)}, \mu_{1, m}^{(PB)}, \Sigma_{1, m}^{(PB)}, .., \mu_{K, m}^{(PB)}, \Sigma_{K, m}^{(PB)}\}$)
+        \State Calculate log-likelihood ($logp(\theta_{EM})$)
+     \EndFor
+     \State Update global best EM reinit
+     \State \Return Global best EM reinit
+    \end{algorithmic}
+\end{algorithm}
+
 \begin{enumerate}
     \item Additional words about sparsity and non spherical gaussians
 \end{enumerate}
 
 \section{Experiments}
 
-\begin{enumerate}
-    \item Synthetic data
-    \item Real world data
-    \item High dim benchmarking
-\end{enumerate}
+\subsection{Synthetic Data}
+
+\begin{center}
+    \begin{tabular}{||c c c c c||} 
+     \hline
+     \multicolumn{5}{|c|}{Experimenting on rank of addition} \\
+     \hline
+     Dataset & Rank & Amplidute & Variation of init & LogLikelihood \\ [0.5ex] 
+     \hline\hline
+     Cloud & 3 & 0 & 0 & 0\\ 
+     \hline
+     Cloud & 5 & 0 & 0 & 0\\
+     \hline
+     Cloud & 7 & 0 & 0 & 0\\
+     \hline
+     Breast Cancer & 5 & 0 & 0 & 0\\
+     \hline
+     Breast Cancer & 10 & 0 & 0 & 0\\
+     \hline
+     Breast Cancer & 15 & 0 & 0 & 0\\ [1ex] 
+     \hline
+    \end{tabular}
+\end{center}
+
+\begin{center}
+    \begin{tabular}{||c c c c c||} 
+     \hline
+     \multicolumn{5}{|c|}{Experimenting on variation of initialization} \\
+     \hline
+     Dataset & Variation of init & Amplidute & Rank & LogLikelihood \\ [0.5ex] 
+     \hline\hline
+     Cloud & 0.03 & 0 & 0 & 0 \\
+     \hline
+     Cloud & 0.001 & 0 & 0 & 0 \\ 
+     \hline
+     Cloud & 0.003 & 0 & 0 & 0 \\ 
+     \hline
+     Cloud & 0.0001 & 0 & 0 & 0 \\ 
+     \hline
+     Breast Cancer & 0.03 & 0 & 0 & 0 \\
+     \hline
+     Breast Cancer & 0.001 & 0 & 0 & 0 \\ 
+     \hline
+     Breast Cancer & 0.003 & 0 & 0 & 0 \\ 
+     \hline
+     Breast Cancer & 0.0001 & 0 & 0 & 0 \\[1ex] 
+     \hline
+    \end{tabular}
+\end{center}
+
+\begin{center}
+    \begin{tabular}{||c c c c c||} 
+     \hline
+     \multicolumn{5}{|c|}{Experimenting on Amplitude (learning rate)} \\
+     \hline
+     Dataset & Amplidute & Variation of init & Rank & LogLikelihood \\ [0.5ex] 
+     \hline\hline
+     Cloud & 0.3 & 0 & 0 & 0 \\
+     \hline
+     Cloud & 0.1 & 0 & 0 & 0 \\ 
+     \hline
+     Cloud & 0.03 & 0 & 0 & 0 \\ 
+     \hline
+     Cloud & 0.01 & 0 & 0 & 0 \\ 
+     \hline
+     Breast Cancer & 0.3 & 0 & 0 & 0 \\
+     \hline
+     Breast Cancer & 0.1 & 0 & 0 & 0 \\ 
+     \hline
+     Breast Cancer & 0.03 & 0 & 0 & 0 \\ 
+     \hline
+     Breast Cancer & 0.01 & 0 & 0 & 0 \\ [1ex] 
+     \hline
+    \end{tabular}
+\end{center}
+
+\subsection{Real World data}
 
 \bibliographystyle{plain}
 \bibliography{references}
