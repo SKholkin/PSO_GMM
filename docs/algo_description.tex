@@ -241,16 +241,18 @@ Let's try to avoid $\frac{d(d+1)}{2}$ parameters for covariance matrix. We can d
 
 \subsection{Low rank delta parametrization for PSO with EM reinit}
 
-EM is still very effictive algo to search for a local minima so let's try to utilize it inside our PSO framework. 
-Unfortunately we are not able to extract our parametrization from covariance matrix in a unique way so we won't have an 
+    EM is still very effictive algo to search for a local minima so let's try to utilize it inside our PSO framework. 
+Unfortunately we are not able to extract our parametrization from covariance matrix in a unique way so we will have an 
 opportunity to init EM using constructed from PSO particles parameters weights, means and covariance matrices, then run EM 
-and construct PSO particle back using resulting EM weights, means and cavariances. So let's try to use PSO optimization as a proxy metric.
+and but we won't have an opportunity to construct PSO particle back using resulting EM weights, means and cavariances. So let's try to use PSO optimization as a proxy metric.
 Then we'd have criterion corresponding to each PSO particle parametrization itself,
 $\theta_{pso} = \{w_1, w_2, .., w_K, \mu_1, .., \mu_K, a_1, .., a_d, b_1, .., b_r\}$, from $\theta_{pso}$  we'll construct GMM parameters $\theta$ in a deterministic way
 $\theta_{pso} = \{w_1, w_2, .., w_K, \mu_1, .., \mu_K, a_1, .., a_d, b_1, .., b_r\} \rightarrow \{w_1, w_2, .., w_K, \mu_1, \Sigma_1, .., \mu_K, \Sigma_K\} = \theta$. 
 $log p(x | \theta)$ will be criterion corresponding to each PSO particle parametrization itself. And we are able to launch EM starting from 
 $\theta$ and obtain new set of GMM parameters $\theta_{EM}$. $EM(init=\theta) = \theta_{EM}$ and corresponding criterion will be $logp(x |\theta_{EM})$.
 So we'll optimize using PSO w.r.t. first criterion but we'll evaluate second criterion and output as an alogrithm result parameters $\theta_{EM}$.
+
+Also for economy of computations we can run EM reinitialization for particles each $N$ iterations (for example 10).
 
 Resulting algorithm will be as follows:
 
@@ -281,7 +283,7 @@ Resulting algorithm will be as follows:
          \EndFor
      \EndFor
      
-     \For{$m=1$ to $M$}
+     \For{$m=1$ to $M$} \Comment{Each $N_{reinit}$ iterations}
         \State Calculate covariance matrices using low rank addition parameters for each particle's personal best
         \State $\theta_{EM}$ = EM($\{w_{1, m}^{(PB)}, w_{2, m}^{(PB)}, .., w_{K, m}^{(PB)}, \mu_{1, m}^{(PB)}, \Sigma_{1, m}^{(PB)}, .., \mu_{K, m}^{(PB)}, \Sigma_{K, m}^{(PB)}\}$)
         \State Calculate log-likelihood ($logp(\theta_{EM})$)
@@ -291,11 +293,10 @@ Resulting algorithm will be as follows:
     \end{algorithmic}
 \end{algorithm}
 
-\begin{enumerate}
-    \item Additional words about sparsity and non spherical gaussians
-\end{enumerate}
 
 \section{Experiments}
+
+\section{Experiments setup}
 
 \subsection{Synthetic Data}
 
@@ -325,6 +326,15 @@ Procedure of generating data sets will be as follows:
         \State \Return $x_1, .., x_N$
     \end{algorithmic}
 \end{algorithm}
+
+\subsection{Real world data}
+We'll be testing on the following real world datasets:
+
+\begin{itemize}
+    \item Cloud Dataset: 10 dimensions, 1024 data points
+    \item Breast Cancer Dataset: 22 dimensions, 569 data points
+    \item Landsat Satelite Dataset: 36 dimensions, 6435 data points
+\end{itemize}
 
 
 \begin{center}
@@ -400,8 +410,6 @@ Procedure of generating data sets will be as follows:
      \hline
     \end{tabular}
 \end{center}
-
-\subsection{Real World data}
 
 \bibliographystyle{plain}
 \bibliography{references}
