@@ -10,6 +10,8 @@
 \usepackage{theoremref}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
+\usepackage{graphicx}
+
 
 
 \newtheorem{theorem}{Theorem}
@@ -28,7 +30,7 @@ left=25mm,
 top=20mm,
 }
 
-\title{NLA/BMML final project proposal}
+\title{Particle Swarm Optimization for optimizing GMM}
 \author{Sergei.Kholkin@skoltech.ru}
 
 \begin{document}
@@ -206,38 +208,7 @@ Let's try to avoid $\frac{d(d+1)}{2}$ parameters for covariance matrix. We can d
  compute covariance matrices for each Gaussian for mth particle as 
  $\Sigma_{(i, m)} = \Sigma_{(i, base)} + diag(a_{(1, m)}^2, .., a_{(d, m)}^2) + \sum_{i=1}^{R}b_{(i, m)}b_{(i, m)}^T$. 
 
- Then PSO particle will contain parameters as follows: $\{ w_1, w_2, .., w_K, \mu_1, .., \mu_K, a_1, .., a_d, b_1, .., b_r\}$
-
- Then PSO algorithm with such a parametrization will look as follows:
- \begin{algorithm}
-    \caption{}\label{alg:cap}
-    \hspace*{\algorithmicindent} \textbf{Input: d-dimensional dataset with N samples, number of iterations $T$, number of initial EM iterations $T_{EM}$, 
-    number of components $K$, number of particles $M$, rank of addition $R$,
-    PSO hyperparameters $\eta, c_1, c_2$} \\
-    \hspace*{\algorithmicindent} \textbf{Output: GMM solution $\{w_1, w_2, .., w_K, \mu_1, \Sigma_1, .., \mu_K, \Sigma_K\}$} 
-    \begin{algorithmic}
-    \State run EM for $T_{EM}$ iterations
-    \For{$m=1$ to $M$}
-        \State $a^{(0)}\sim N(0, \sigma_1I_d)$ \Comment{Initialize parameters for particles}
-        \For{$r=1$ to $R$}
-            \State $b^{(0)}_r \sim N(0, \sigma_2 I_d)$
-        \EndFor
-    \EndFor
-    
-     \For{$t = 1$ to $T$}
-         \For{$m=1$ to $M$}
-            \State Calculate covariance matrices using low rank addition parameters
-            \State Calculate log-likelihood
-            \State Update personal best
-         \EndFor
-         \State Update global best
-         \For{$m=1$ to $M$}
-            \State Update particle's $\mu_m^{(t)}, w_m^{(t)}, a_m^{(t)}, b_m^{(t)}$
-         \EndFor
-     \EndFor
-     \State \Return Global best
-     \end{algorithmic}
-     \end{algorithm}
+Then PSO particle will contain parameters as follows: $\{ w_1, w_2, .., w_K, \mu_1, .., \mu_K, a_1, .., a_d, b_1, .., b_r\}$
 
 \subsection{Low rank delta parametrization for PSO with EM reinit}
 
@@ -259,7 +230,7 @@ Resulting algorithm will be as follows:
 \begin{algorithm}
     \caption{}\label{alg:cap}
     \hspace*{\algorithmicindent} \textbf{Input: d-dimensional dataset with N samples, number of iterations $T$, number of initial EM iterations $T_{EM}$, 
-    number of components $K$, number of particles $M$, rank of addition $R$,
+    number of components $K$, number of iteration for EM reintit $T_{EM_{reinit{}}}$, number of particles $M$, rank of addition $R$,
     PSO hyperparameters $\eta, c_1, c_2$} \\
     \hspace*{\algorithmicindent} \textbf{Output: GMM solution $\{w_1, w_2, .., w_K, \mu_1, \Sigma_1, .., \mu_K, \Sigma_K\}$} 
     \begin{algorithmic}
@@ -278,14 +249,14 @@ Resulting algorithm will be as follows:
             \State Update personal best
          \EndFor
          \State Update global best
-         \For{$m=1$ to $M$}
+         \For{$m=1$ to $M$} \Comment PSO update
             \State Update particle's $\mu_m^{(t)}, w_m^{(t)}, a_m^{(t)}, b_m^{(t)}$
          \EndFor
      \EndFor
      
      \For{$m=1$ to $M$} \Comment{Each $N_{reinit}$ iterations}
         \State Calculate covariance matrices using low rank addition parameters for each particle's personal best
-        \State $\theta_{EM}$ = EM($\{w_{1, m}^{(PB)}, w_{2, m}^{(PB)}, .., w_{K, m}^{(PB)}, \mu_{1, m}^{(PB)}, \Sigma_{1, m}^{(PB)}, .., \mu_{K, m}^{(PB)}, \Sigma_{K, m}^{(PB)}\}$)
+        \State $\theta_{EM}$ = EM($\{w_{1, m}^{(PB)}, w_{2, m}^{(PB)}, .., w_{K, m}^{(PB)}, \mu_{1, m}^{(PB)}, \Sigma_{1, m}^{(PB)}, .., \mu_{K, m}^{(PB)}, \Sigma_{K, m}^{(PB)}\}$) \Comment{Run EM for $T_{EM_{reinit{}}}$ iterations}
         \State Calculate log-likelihood ($logp(\theta_{EM})$)
      \EndFor
      \State Update global best EM reinit
@@ -293,10 +264,17 @@ Resulting algorithm will be as follows:
     \end{algorithmic}
 \end{algorithm}
 
-
 \section{Experiments}
 
-\section{Experiments setup}
+\subsection{Experiments setup}
+
+We can compare time of algorithms execution \ref{table:time_table}
+
+Or we can compare number of EM iterations for each algorithm (approach used in \cite{ARI20122804}). For PSO algorithm we have $M$ particles
+which are being init based on one EM which runs $T_{init}$ iterations with $M$ random init samples, then 
+each particle through running of PSO algorithm is being reinit $K$ times using EM with $T_2$ iteration budget.
+So in total number of EM iterations for PSO algorithm run is: $M(T_{init} + K*T_2)$. Then lets use this EM iterations budget
+for EM with random init and run $M$ random samples with $(T_{init} + K*T_2)$ iterations budget for each EM run. \ref{table:iterations_compare_table}
 
 \subsection{Synthetic Data}
 
@@ -319,7 +297,7 @@ Procedure of generating data sets will be as follows:
                     \State $\phi_{(p,q)} \sim U[-\pi/4, 3\pi/4]$ \Comment{Sample Givens rotation angles}
                 \EndFor
                 \State
-            \State $\Sigma_m = f(\lambda_1, .., \lambda_d, \phi_{(1, 1)}, \phi_{(d, d)})$ \Comment{Constrcut covariance matrix from Givens rotation angles and eigenvalues}
+            \State $\Sigma_m = f(\lambda_1, .., \lambda_d, \phi_{(1, 1)}, \phi_{(d, d)})$ \Comment{Construct covariance matrix from Givens rotation angles and eigenvalues}
             \EndFor
             \State Sample $x_1, .., x_N$ from $M$ Gaussian Mixtures w.r.t. $w$ 
         \EndFor 
@@ -336,80 +314,57 @@ We'll be testing on the following real world datasets:
     \item Landsat Satelite Dataset: 36 dimensions, 6435 data points
 \end{itemize}
 
-
+\begin{table}
 \begin{center}
-    \begin{tabular}{||c c c c c||} 
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{||c c c c c c c||} 
      \hline
-     \multicolumn{5}{|c|}{Experimenting on rank of addition} \\
+     \multicolumn{7}{|c|}{Comparison with random init EM by running time} \\
      \hline
-     Dataset & Rank & Amplidute & Variation of init & LogLikelihood \\ [0.5ex] 
+     Dataset & N particles/EM random init samples& Rank & Amplidute & Variation of init & LogLikelihood & Time, sec\\ [0.5ex] 
      \hline\hline
-     Cloud & 3 & 0 & 0 & 0\\ 
+     Breast Cancer & 50 & 10 & 0.003 & 0.003 & 75.77 +- 0.55 & 128\\
      \hline
-     Cloud & 5 & 0 & 0 & 0\\
+     Breast Cancer & 100 & EM & - & - & 73.95 +- 0.34 & 22\\
      \hline
-     Cloud & 7 & 0 & 0 & 0\\
+     Breast Cancer & 600 & EM & - & - & 74.46 +- 0.44 & 138\\ [1ex] 
      \hline
-     Breast Cancer & 5 & 0 & 0 & 0\\
-     \hline
-     Breast Cancer & 10 & 0 & 0 & 0\\
-     \hline
-     Breast Cancer & 15 & 0 & 0 & 0\\ [1ex] 
-     \hline
-    \end{tabular}
-\end{center}
+    \end{tabular}}
+    
+\caption{PSO EM reinit and EM with random init algos comparison}
+\label{table:time_table}
 
-\begin{center}
-    \begin{tabular}{||c c c c c||} 
-     \hline
-     \multicolumn{5}{|c|}{Experimenting on variation of initialization} \\
-     \hline
-     Dataset & Variation of init & Amplidute & Rank & LogLikelihood \\ [0.5ex] 
-     \hline\hline
-     Cloud & 0.03 & 0 & 0 & 0 \\
-     \hline
-     Cloud & 0.001 & 0 & 0 & 0 \\ 
-     \hline
-     Cloud & 0.003 & 0 & 0 & 0 \\ 
-     \hline
-     Cloud & 0.0001 & 0 & 0 & 0 \\ 
-     \hline
-     Breast Cancer & 0.03 & 0 & 0 & 0 \\
-     \hline
-     Breast Cancer & 0.001 & 0 & 0 & 0 \\ 
-     \hline
-     Breast Cancer & 0.003 & 0 & 0 & 0 \\ 
-     \hline
-     Breast Cancer & 0.0001 & 0 & 0 & 0 \\[1ex] 
-     \hline
-    \end{tabular}
 \end{center}
+\end{table}
 
-\begin{center}
-    \begin{tabular}{||c c c c c||} 
-     \hline
-     \multicolumn{5}{|c|}{Experimenting on Amplitude (learning rate)} \\
-     \hline
-     Dataset & Amplidute & Variation of init & Rank & LogLikelihood \\ [0.5ex] 
-     \hline\hline
-     Cloud & 0.3 & 0 & 0 & 0 \\
-     \hline
-     Cloud & 0.1 & 0 & 0 & 0 \\ 
-     \hline
-     Cloud & 0.03 & 0 & 0 & 0 \\ 
-     \hline
-     Cloud & 0.01 & 0 & 0 & 0 \\ 
-     \hline
-     Breast Cancer & 0.3 & 0 & 0 & 0 \\
-     \hline
-     Breast Cancer & 0.1 & 0 & 0 & 0 \\ 
-     \hline
-     Breast Cancer & 0.03 & 0 & 0 & 0 \\ 
-     \hline
-     Breast Cancer & 0.01 & 0 & 0 & 0 \\ [1ex] 
-     \hline
-    \end{tabular}
-\end{center}
+
+\begin{table}
+    \begin{center}
+        \resizebox{\textwidth}{!}{%
+        \begin{tabular}{||c c c c c c c||} 
+         \hline
+         \multicolumn{7}{|c|}{Comparison with random init EM by EM iterations budget} \\
+         \hline
+         Dataset & M & T1 & T2 & T1 * T2 & PSO LogLikelihood & EM LogLikelihood\\ [0.5ex] 
+         \hline\hline
+         Cloud Dataset & 50 & 10 & 0.003 & 0.003 & 75.77 +- 0.55 & 128\\
+         \hline
+         Breast Cancer & 100 & EM & - & - & 73.95 +- 0.34 & 22\\
+         \hline
+         Breast Cancer & 600 & EM & - & - & 74.46 +- 0.44 & 138\\ [1ex] 
+         \hline
+        \end{tabular}}
+        
+    \caption{M - number of particles and number of random inits for initial PSO EM, T1 - Number of EM reinits from PSO particle coordinates, 
+    T2 - max number of iterations of EM reinits, EM LogLikelihood - log likelihood of best EM results from 2 * M random inited points and with max number of iterations equalt to T1 * T2,
+    PSO LogLikelihood - log likelihood of EM reinit from PSO particle coordinates. Recap that PSO algorithm in this experiments setup runs as follows: 
+    1) Run EM with M random inits for T1 * T2 iterations 2) run PSO for F * T1 iterations, each F PSO iterations run GMM reinit that starts from 
+    particle coordinates and runs for T2 iterations. Total number of EM iterations for this PSO algorithm will be 2 * M * T1 * T2}
+    \label{table:iterations_compare_table}
+    
+    \end{center}
+    \end{table}
+    
 
 \bibliographystyle{plain}
 \bibliography{references}
