@@ -1,0 +1,13 @@
+
+{
+    "n_particles": 50,
+    "amplitude": 0.05,
+    "rank": 10,
+    "init_scale": 0.3,
+    "T2": 300,
+    "T1": 5,
+    "pso_iters": 50,
+    "EM_init_method": "k-means++",
+    "n_components": 10 ,
+    "n_iters": 100
+}
