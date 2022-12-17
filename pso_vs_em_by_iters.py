@@ -19,9 +19,9 @@ def pso_vs_em_experiment(config, data):
     print('Basic EM score', pso.basic_gmm_score)
 
     # M * T_1 * T_2 EM iterations for EM init from PSO particles positions
-    for i in range(n_iters):
+    for i in range(n_iters + 1):
         pso.step()
-        if  i % (n_iters // T1) == 0:
+        if  i % (n_iters // (T1 - 1)) == 0:
             print(f'Iter {i} Particles reinit')
 
             rerun_em_fintess_score_list = pso.run_em_particles_fintess_score()
@@ -39,7 +39,7 @@ def pso_vs_em_experiment(config, data):
     T1 = config.T1
     T2 = config.T2
     
-    reference_gmm = GaussianMixture(n_components=config.n_components, covariance_type='full', n_init=10 * config.n_particles, max_iter=T2 * T1,  init_params=config.EM_init_method)
+    reference_gmm = GaussianMixture(n_components=config.n_components, covariance_type='full', n_init=2 * config.n_particles, max_iter=T2 * T1,  init_params=config.EM_init_method)
     reference_gmm.fit(data)
 
     print('Reference GMM 2 * n_particles inits, T1 * T2 iters:', reference_gmm.score(data))

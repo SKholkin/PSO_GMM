@@ -20,9 +20,9 @@ def pso_vs_em_experiment(config, data):
     gmm_reinit_pso_scores = []
     print('Basic EM score', pso.basic_gmm_score)
     start_pso = time()
-    for i in range(n_iters):
+    for i in range(n_iters + 1):
         pso.step()
-        if  i % (n_iters // T1) == 0:
+        if  i % (n_iters // (T1 - 1)) == 0:
             print(f'Iter {i} Particles reinit')
 
             rerun_em_fintess_score_list = pso.run_em_particles_fintess_score()

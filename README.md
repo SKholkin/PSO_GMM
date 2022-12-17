@@ -22,6 +22,22 @@ or
 
 the difference between those two is that second uses EM budget 10 * M * T_1 * T_2 because this approximately comparable with time PSO runs with EM budget 2 * M * T_1 * T_2 (remember PSO algo is not optimized yet!). 
 
+Results are being saved as one row csv files to log folder
+
+#### Configs
+
+Some PSO configs are stored in `/configs` folder
+
+### Examples
+
+As a particular example you can run:
+
+`python synthetic_data_gen.py -n_samples 1000 -dim 30 -c_sep 2 -n_comp 15`
+`python pso_vs_em_by_iters.py --config configs/default_params_synth_30.json --n_runs 10 --dataset Synthetic_dim_30_n_samples_1000_n_comp_15_c_separation_2.0.data.npy`
+
+or
+
+`python pso_vs_em_by_iters.py --config configs/params_breast_cancer.json --n_runs 10 --dataset breast_cancer`
 
 ### Optional 
 run 

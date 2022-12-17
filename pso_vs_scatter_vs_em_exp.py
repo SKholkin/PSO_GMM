@@ -17,9 +17,9 @@ def pso_vs_scatter_experiment(config, data):
     gmm_reinit_scatter_scores = []
     gmm_reinit_pso_scores = []
     print('Basic EM score', pso.basic_gmm_score)
-    for i in range(n_iters):
+    for i in range(n_iters + 1):
         pso.step()
-        if  i % (n_iters // T1) == 0:
+        if  i % (n_iters // (T1 - 1)) == 0:
             print(f'Iter {i} Particles reinit')
             scatter.reinit_particles()
             scatter_rerun_em_fintess_score_list = scatter.run_em_particles_fintess_score()
