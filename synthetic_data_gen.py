@@ -15,12 +15,10 @@ def generate_GaussianMixture(n_components, d, c_separation):
         params = generateGaussian(d, means_max=20)
 
         accept = reduce(lambda a, params_1: a and check_separation(params, params_1, c_separation), components_params, True)
-        print(accept)
 
         if accept:
             components_params.append(params)
         
-        #check_separation(params, components_params[0], c_separation),
         i += 1
 
         if len(components_params) == n_components:
@@ -30,7 +28,6 @@ def check_separation(params_1, params_2, c_separation):
 
     delta_means_norm = np.linalg.norm(params_1['mu'] - params_2['mu'], ord=2)
     d = params_1['mu'].shape[0]
-    print('||mu_1 - mu_2||_2: ', delta_means_norm, '  c * sqrt(lambda_max): ', c_separation * np.sqrt(d * max(params_1['lambda_max'], params_2['lambda_max'])))
 
     return delta_means_norm > c_separation * np.sqrt(d * max(params_1['lambda_max'], params_2['lambda_max']))
 
@@ -100,7 +97,6 @@ if __name__ == '__main__':
     if filename is None:
         filename = f'Synthetic_dim_{dim}_n_samples_{n_samples}_n_comp_{n_components}_c_separation_{c_separation}.data'
 
-
     weights, gmm = generate_GaussianMixture(n_components=n_components, d=dim, c_separation=c_separation)
     is_separated = True
     is_sigma_spd = True
@@ -109,8 +105,6 @@ if __name__ == '__main__':
             is_separated = is_separated and check_separation(gmm[i], gmm[j], c_separation=c_separation)
         is_sigma_spd = is_sigma_spd and is_spd(gmm[i]['sigma'])
 
-    print('is_separated', is_separated)
-    print('is_sigma_spd', is_sigma_spd)
 
     data = generate_from_GMM(weights, gmm, n_samples=n_samples)
     np.save(filename, data)

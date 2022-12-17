@@ -7,19 +7,18 @@ import numpy as np
 import argparse
 from utils import load_dataset, real_dataset_names
 from sklearn.mixture import GaussianMixture
-from time import time
 
 def pso_vs_em_experiment(config, data):
+
     pso = PSO(data, config)
     n_iters = config.n_iters
     T1 = config.T1
-    
-    time_pso = 0
-    time_big_em = 0
 
     gmm_reinit_pso_scores = []
+    # M * T_1 * T_2 EM iterations for basic EM init
     print('Basic EM score', pso.basic_gmm_score)
-    start_pso = time()
+
+    # M * T_1 * T_2 EM iterations for EM init from PSO particles positions
     for i in range(n_iters):
         pso.step()
         if  i % (n_iters // T1) == 0:
@@ -32,29 +31,20 @@ def pso_vs_em_experiment(config, data):
 
             print('PSO: Rerun EM best fintess score', max(rerun_em_fintess_score_list))
             print(f'PSO: Max fitness score {max(fintess_score_list)}')
+
     init_gmm_em_score = pso.basic_gmm_score
 
-    time_pso = time() - start_pso
-
-    print('PSO time, sec', time_pso)
-
-    # init big EM
+    # init big EM with 2 * M * T_1 * T_2 EM iteration budget
     
     T1 = config.T1
     T2 = config.T2
-
-    start_big_em = time()
     
     reference_gmm = GaussianMixture(n_components=config.n_components, covariance_type='full', n_init=10 * config.n_particles, max_iter=T2 * T1,  init_params=config.EM_init_method)
     reference_gmm.fit(data)
 
-    time_big_em = time() - start_big_em
-    
-    print('Big EM time, sec', time_big_em)
+    print('Reference GMM 2 * n_particles inits, T1 * T2 iters:', reference_gmm.score(data))
 
-    print('Reference GMM 10 * n_particles inits, T1 * T2 iters:', reference_gmm.score(data))
-
-    return {'em': init_gmm_em_score, 'pso': max(gmm_reinit_pso_scores), 'pso_time': time_pso, 'ref_gmm_score': reference_gmm.score(data), 'time_big_em': time_big_em}
+    return {'em': init_gmm_em_score, 'pso': max(gmm_reinit_pso_scores), 'ref_gmm_score': reference_gmm.score(data)}
     
 
 def save_to_csv(config: Dict, results: Dict):

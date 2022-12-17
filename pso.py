@@ -2,7 +2,6 @@ import numpy as np
 from sklearn.mixture import GaussianMixture
 from pathlib import Path
 import json
-import csv
 from copy import deepcopy
 from addict import Dict
 import datetime
@@ -56,7 +55,7 @@ class Particle():
 
 class PSOConfig(Dict):
     default_params_path = 'default_params.json'
-    must_have_params = ["n_particles",  "amplitude",  "rank", "init_scale", "T2", "T1", "pso_iters", "n_components", "n_iters"]
+    must_have_params = ["n_particles",  "amplitude",  "rank", "init_scale", "T2", "T1", "n_components", "n_iters"]
     @classmethod
     def from_json(cls, path):
         file_path = Path(path).resolve()

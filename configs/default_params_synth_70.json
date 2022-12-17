@@ -6,7 +6,6 @@
     "init_scale": 0.01,
     "T2": 500,
     "T1": 5,
-    "pso_iters": 50,
     "EM_init_method": "k-means++",
     "n_components": 10 ,
     "n_iters": 100
