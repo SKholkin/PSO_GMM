@@ -5,52 +5,7 @@ import json
 from copy import deepcopy
 from addict import Dict
 import datetime
-
-
-class Particle():
-    def __init__(
-        self, 
-        n_components,
-        data_dim, 
-        rank, 
-        amplitude,
-        init_scale,
-        weights,
-    ):
-        """
-        Particle
-        """
-        self.amplitude = amplitude
-        self.keys = ['weights', 'delta_mean', 'delta_diag_prec', 'delta_param_prec']
-        
-        self.velocity = { 
-            'weights' : np.zeros(n_components),
-            'delta_mean' : np.zeros((n_components, data_dim)),
-            'delta_diag_prec' : np.zeros((n_components, data_dim)),
-            'delta_param_prec' : np.zeros((n_components, rank, data_dim))
-        }
-
-        self.position = {
-            'weights' : weights,
-            'delta_mean' : np.random.normal(0, init_scale, size=(n_components, data_dim)),
-            'delta_diag_prec' : np.random.normal(0, init_scale, size=(n_components, data_dim)),
-            'delta_param_prec' : np.random.normal(0, init_scale, size=(n_components, rank, data_dim))
-        }
-        
-        self.trajectory = [self.position]
-        self.person_best = self.position
-        self.global_best = self.position
-        self.person_best_fitness_score = -np.inf
-        
-        
-    def step(self, c_1, c_2, r_1, r_2):
-        for key in self.keys:
-            self.velocity[key] = (
-                c_1 * r_1[key] * (self.person_best[key] - self.position[key]) + 
-                c_2 * r_2[key] * (self.global_best[key] - self.position[key])
-            )
-            self.position[key] += self.amplitude * self.velocity[key]
-        self.trajectory.append(self.position)
+from particle import Particle
 
 
 class PSOConfig(Dict):
@@ -222,3 +177,46 @@ class PSO():
                 self.global_fitness_score = fintess_score
                 self.global_best = particle.position
 
+
+class EigenParticle:
+    def __init__(
+        self, 
+        n_components,
+        data_dim,
+        amplitude,
+        init_scale,
+        weights,
+    ):
+        """
+        Particle
+        """
+        self.amplitude = amplitude
+        self.keys = ['weights', 'delta_mean', 'delta_diag_prec', 'delta_param_prec']
+        
+        self.velocity = { 
+            'weights' : np.zeros(n_components),
+            'means' : np.zeros((n_components, data_dim)),
+            'eigenvalues_cov' : np.zeros((n_components, data_dim)),
+            'givens_angles' : np.zeros((n_components, data_dim * (data_dim - 1) / 2))
+        }
+
+        self.position = {
+            'weights' : np.zeros(n_components),
+            'means' : np.zeros((n_components, data_dim)),
+            'eigenvalues_cov' : np.zeros((n_components, data_dim)),
+            'givens_angles' : np.zeros((n_components, data_dim * (data_dim - 1) / 2))
+        }
+        
+        self.trajectory = [self.position]
+        self.person_best = self.position
+        self.global_best = self.position
+        self.person_best_fitness_score = -np.inf
+
+
+
+class PSOEigen(PSO):
+    def __init__(self, data, config: PSOConfig, basic_gmm=None):
+        super().__init__(data, config, basic_gmm)
+
+    def step(self):
+        pass
