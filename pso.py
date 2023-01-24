@@ -5,7 +5,8 @@ import json
 from copy import deepcopy
 from addict import Dict
 import datetime
-from particle import Particle
+from particle import Particle, EigenParticle
+from utils import find_closest_spd
 
 
 class PSOConfig(Dict):
@@ -54,14 +55,16 @@ class PSO():
             'weights' : r_1_w,
             'delta_mean' : r_1,
             'delta_diag_prec' : r_1,
-            'delta_param_prec' : r_1
+            'delta_param_prec' : r_1,
+            'delta_param_prec_eigval': r_1
         }
         
         self.r_2 = {
             'weights' : r_2_w,
             'delta_mean' : r_2,
             'delta_diag_prec' : r_2,
-            'delta_param_prec' : r_2
+            'delta_param_prec' : r_2,
+            'delta_param_prec_eigval': r_2
         }
         self.data_dim = data.shape[1]
         
@@ -78,6 +81,7 @@ class PSO():
         self.particles = [Particle(self.n_components, self.data_dim, self.rank, self.amplitude, self.init_scale, self.basic_weights)
                           for _ in range(self.n_particles)]
         self._init_global()
+        
 
     def basic_gmm_init(self):
         
@@ -107,8 +111,8 @@ class PSO():
             prec_matr[i] += np.diag(particle.position['delta_diag_prec'][i] ** 2)
 
             for k in range(self.config.rank):
-                prec_matr[i] += particle.position['delta_param_prec'][i][k] @ particle.position['delta_param_prec'][i][k].T
-
+                prec_matr[i] += particle.position['delta_param_prec_eigval'][i][k] * (particle.position['delta_param_prec'][i][k] @ particle.position['delta_param_prec'][i][k].T)
+            prec_matr[i] = find_closest_spd(prec_matr[i])
             cholesky[i] = np.linalg.cholesky(prec_matr[i])
 
         gmm_init = GaussianMixture(n_components=weights.shape[0], covariance_type='full', weights_init=weights, means_init=means, max_iter=self.config.T2)
@@ -124,8 +128,10 @@ class PSO():
         self.global_fitness_score = fintess_scores[best_id]
         self.global_best = self.particles[best_id].position
         
-    def reinit_particles(self, inplace=True):
-        particles = [Particle(self.n_components, self.data_dim, self.rank, self.amplitude, self.init_scale, self.basic_weights) for _ in range(self.n_particles)]
+    def reinit_particles(self, init_scale=None, inplace=True):
+        if init_scale is None:
+            init_scale = self.init_scale
+        particles = [Particle(self.n_components, self.data_dim, self.rank, self.amplitude, init_scale, self.basic_weights) for _ in range(self.n_particles)]
         if inplace:
             self.particles = particles
         return particles
@@ -178,45 +184,96 @@ class PSO():
                 self.global_best = particle.position
 
 
-class EigenParticle:
-    def __init__(
-        self, 
-        n_components,
-        data_dim,
-        amplitude,
-        init_scale,
-        weights,
-    ):
-        """
-        Particle
-        """
-        self.amplitude = amplitude
-        self.keys = ['weights', 'delta_mean', 'delta_diag_prec', 'delta_param_prec']
-        
-        self.velocity = { 
-            'weights' : np.zeros(n_components),
-            'means' : np.zeros((n_components, data_dim)),
-            'eigenvalues_cov' : np.zeros((n_components, data_dim)),
-            'givens_angles' : np.zeros((n_components, data_dim * (data_dim - 1) / 2))
-        }
+class PSOEigen:
+    def __init__(self, data, config: PSOConfig):
+        self.config = config
+        self.n_particles = config.n_particles
+        self.amplitude = config.amplitude
+        self.n_components = config.n_components
+        self.rank = config.rank
+        self.init_scale = config.init_scale
+        self.T2 = config.T2
+        self.T1 = config.T1
+        self.data = data
 
-        self.position = {
-            'weights' : np.zeros(n_components),
-            'means' : np.zeros((n_components, data_dim)),
-            'eigenvalues_cov' : np.zeros((n_components, data_dim)),
-            'givens_angles' : np.zeros((n_components, data_dim * (data_dim - 1) / 2))
+        r_1 = 0.6
+        r_2 = 0.8
+        r_1_w = 0.42
+        r_2_w = 0.57
+            
+        self.r_1 = {
+            'weights' : r_1_w,
+            'means' : r_1,
+            'eigenvalues_prec' : r_1,
+            'givens_angles' : r_1
         }
         
-        self.trajectory = [self.position]
-        self.person_best = self.position
-        self.global_best = self.position
-        self.person_best_fitness_score = -np.inf
+        self.r_2 = {
+            'weights' : r_2_w,
+            'means' : r_2,
+            'eigenvalues_prec' : r_2,
+            'givens_angles' : r_2
+        }
+        self.log_file = 'log_eigen.txt'
 
+    def basic_gmm_init(self):
+        
+        gmm = GaussianMixture(n_components=self.n_components, covariance_type='full', n_init=self.n_particles, max_iter=self.T2 * self.T1,  init_params='k-means++')
+        gmm.fit(self.data)
+        weights = gmm.weights_
+        means = gmm.means_
+        
+        basic_prec_matr = np.zeros_like(gmm.precisions_cholesky_)
+        for i in range(gmm.precisions_cholesky_.shape[0]):
+            basic_prec_matr[i] = gmm.precisions_cholesky_[i] @ gmm.precisions_cholesky_[i].T
 
+        self.basic_gmm_score = gmm.score(self.data)
 
-class PSOEigen(PSO):
-    def __init__(self, data, config: PSOConfig, basic_gmm=None):
-        super().__init__(data, config, basic_gmm)
+        return weights, means, basic_prec_matr, gmm
 
-    def step(self):
+    def update_global_best(self):
         pass
+
+    def run(self):
+        with open(self.log_file, 'w+') as f:
+            max_iter = 31
+            T1 = 10
+            # make inital GMM
+            # scatter points around init GMM
+            # contol amplitude of scattering by eigenvalues max values
+            # choose global best
+            # reorder w.r.t. global best
+            weights, means, basic_prec_matr, gmm = self.basic_gmm_init()
+            f.write('Basic GMM LL: ' + str(gmm.score(self.data)) + '\n')
+
+            particles = [EigenParticle(self.n_components, self.data[0].shape[0], self.amplitude, weights, means, basic_prec_matr, eig_val_max=self.config.eig_val_max) for i in range(self.n_particles)]
+
+            # for p in particles:
+            #     print('Particle LL: ', p.calculate_LL(self.data))
+            # input()
+
+            # init global best
+
+            for i in range(max_iter):
+                if (i % T1) == 0:
+                    f.write(f'Iter {i}\n')
+                    for j in range(len(particles)):
+                        new_ll = particles[j].run_em(self.data)
+                        f.write('New LL: ' + str(new_ll) + '\n')
+                    for i in range(len(particles)):
+                        f.write(f'Particle LL: {particles[i].calculate_LL(self.data)} \n')
+                    
+                        
+                    # init GMM from PSO particle coordinates
+                    # collect new LL 
+                    # DO NOT reconstruct particles from new GMM initializations
+                    pass
+
+                c_1 = np.random.uniform(0, 1)
+                c_2 = np.random.uniform(0, 1)
+                for i in range(len(particles)):
+                    particles[i].step(c_1, c_2, self.r_1, self.r_2)
+                f.flush()
+
+                # update personal best and global best
+            

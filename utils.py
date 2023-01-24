@@ -26,6 +26,26 @@ def load_cloud_dataset():
     cloud_data = scaler.transform(cloud_data)
     return cloud_data
 
+def load_satelite_dataset():
+    f_name = osp.join('data', 'sat.trn')
+    with open(f_name) as f:
+        sat_data = pd.DataFrame([item.split()[:-1] for item in f.readlines()])
+    sat_data = sat_data.astype(float).to_numpy()
+    scaler = MinMaxScaler()
+    scaler.fit(sat_data)
+    sat_data = scaler.transform(sat_data)
+    return sat_data[:int(sat_data.shape[0] / 4), :]
+
+def load_seg_data():
+    f_name = osp.join('data', 'segmentation.data')
+    with open(f_name) as f:
+        sat_data = pd.DataFrame([item.split(',')[1:] for item in f.readlines()])
+    sat_data = sat_data[6:].astype(float).to_numpy()
+    scaler = MinMaxScaler()
+    scaler.fit(sat_data)
+    sat_data = scaler.transform(sat_data)
+    return sat_data
+
 def load_synthetic_dataset(filename):
     data = np.load(filename)
     scaler = MinMaxScaler()
@@ -38,6 +58,10 @@ def load_dataset(dataset_name):
         return load_breast_cancer()
     if dataset_name == 'cloud':
         return load_cloud_dataset()
+    if dataset_name == 'landsat':
+        return load_satelite_dataset()
+    if dataset_name == 'seg':
+        return load_seg_data()
     if osp.isfile(dataset_name):
         return load_synthetic_dataset(dataset_name)
     raise RuntimeError(f'Unknown dataset {dataset_name}. Please provide path to synthetic dataset file or correctly write real dataset name')
@@ -118,7 +142,6 @@ def Givens2Matrix(phi_list):
         G[col, row] = -s
 
         ret_val = np.dot(ret_val, G.T)
-
         
     return ret_val
         
@@ -132,3 +155,13 @@ def eigh_with_fixed_direction_range(spd_matr):
             v[:, i] = -v[:, i]
 
     return eigenvalues, v
+
+def find_closest_spd(A):
+    eps = 1e-05
+    w, v  = np.linalg.eigh(A)
+    w = w * (w > 0) + eps
+    return v @ np.diag(w) @ v.T
+
+if __name__ == '__main__':
+    seg_data = load_seg_data()
+    print(seg_data.shape, seg_data[0])

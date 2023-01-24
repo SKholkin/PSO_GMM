@@ -14,6 +14,20 @@ def pso_vs_em_experiment(config, data):
     n_iters = config.n_iters
     T1 = config.T1
 
+    print(f'Basic precision matrix mean value {np.sqrt(np.mean(pso.basic_prec_matr))}')
+
+
+    random_scattering_scores = [0]
+
+    for i in range(0):
+        pso.reinit_particles()
+        rerun_em_fintess_score_list = pso.run_em_particles_fintess_score()
+        random_scattering_scores.append(max(rerun_em_fintess_score_list))
+
+    print(f'Random scattering results: {random_scattering_scores}')
+
+    pso.reinit_particles()
+
     gmm_reinit_pso_scores = []
     # M * T_1 * T_2 EM iterations for basic EM init
     print('Basic EM score', pso.basic_gmm_score)
@@ -28,7 +42,6 @@ def pso_vs_em_experiment(config, data):
             fintess_score_list = pso.get_particles_fitness_scores()
 
             gmm_reinit_pso_scores.append(max(rerun_em_fintess_score_list))
-
             print('PSO: Rerun EM best fintess score', max(rerun_em_fintess_score_list))
             print(f'PSO: Max fitness score {max(fintess_score_list)}')
 
@@ -44,7 +57,7 @@ def pso_vs_em_experiment(config, data):
 
     print('Reference GMM 2 * n_particles inits, T1 * T2 iters:', reference_gmm.score(data))
 
-    return {'em': init_gmm_em_score, 'pso': max(gmm_reinit_pso_scores), 'ref_gmm_score': reference_gmm.score(data)}
+    return {'em': init_gmm_em_score, 'pso': max(gmm_reinit_pso_scores), 'ref_gmm_score': reference_gmm.score(data), 'random_scattering': max(random_scattering_scores)}
     
 
 def save_to_csv(config: Dict, results: Dict):
