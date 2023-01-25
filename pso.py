@@ -244,7 +244,18 @@ class PSOEigen:
             # choose global best
             # reorder w.r.t. global best
             weights, means, basic_prec_matr, gmm = self.basic_gmm_init()
+            basic_em_score = gmm.score(self.data)
             f.write('Basic GMM LL: ' + str(gmm.score(self.data)) + '\n')
+
+            print('EIGENVALUES')
+            eigvals = [np.linalg.eigvals(basic_prec_matr[i]) for i in range(basic_prec_matr.shape[0])]
+            for i in range(basic_prec_matr.shape[0]):
+                eigvals = np.linalg.eigvals(basic_prec_matr[i])
+
+                print(np.max(eigvals), np.mean(eigvals), np.min(eigvals))
+            
+            self.config.eig_val_max  = np.mean(eigvals) * 0.1
+            print('Max egival for random scattering: ', self.config.eig_val_max)
 
             particles = [EigenParticle(self.n_components, self.data[0].shape[0], self.amplitude, weights, means, basic_prec_matr, eig_val_max=self.config.eig_val_max) for i in range(self.n_particles)]
 
@@ -254,15 +265,21 @@ class PSOEigen:
 
             # init global best
 
+            f.flush()
+            best_pso_em_score = -np.inf
+
             for i in range(max_iter):
                 if (i % T1) == 0:
                     f.write(f'Iter {i}\n')
                     for j in range(len(particles)):
                         new_ll = particles[j].run_em(self.data)
                         f.write('New LL: ' + str(new_ll) + '\n')
+                        if best_pso_em_score < new_ll:
+                            best_pso_em_score = new_ll
                     for i in range(len(particles)):
                         f.write(f'Particle LL: {particles[i].calculate_LL(self.data)} \n')
-                    
+
+                    break
                         
                     # init GMM from PSO particle coordinates
                     # collect new LL 
@@ -274,6 +291,14 @@ class PSOEigen:
                 for i in range(len(particles)):
                     particles[i].step(c_1, c_2, self.r_1, self.r_2)
                 f.flush()
-
-                # update personal best and global best
             
+            # update personal best and global best
+
+            # run reference EM
+
+            # 2 times more iterations
+            self.T2 = self.T2 * 2
+            weights, means, basic_prec_matr, ref_gmm = self.basic_gmm_init()
+            ref_em_score = ref_gmm.score(self.data)
+
+        return {'em': basic_em_score, 'pso': best_pso_em_score, 'ref_em': ref_em_score}

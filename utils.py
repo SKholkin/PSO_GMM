@@ -3,6 +3,7 @@ import os.path as osp
 import pandas as pd
 import numpy as np
 from math import copysign, hypot
+from sklearn.datasets import load_digits
 
 real_dataset_names = ['breast_cancer', 'cloud']
 
@@ -53,6 +54,21 @@ def load_synthetic_dataset(filename):
     data = scaler.transform(data)
     return data
 
+def load_usps_dataset():
+    import h5py
+    filename = 'data/usps.h5'
+    with h5py.File(filename, 'r') as hf:
+            train = hf.get('train')
+            X_tr = train.get('data')[:]
+            y_tr = train.get('target')[:]
+            test = hf.get('test')
+            X_te = test.get('data')[:]
+            y_te = test.get('target')[:]
+    print(np.array(X_tr).shape)
+
+def load_digits_dataset():
+    return load_digits().data
+
 def load_dataset(dataset_name):
     if dataset_name == 'breast_cancer':
         return load_breast_cancer()
@@ -62,6 +78,8 @@ def load_dataset(dataset_name):
         return load_satelite_dataset()
     if dataset_name == 'seg':
         return load_seg_data()
+    if dataset_name == 'digits':
+        return load_digits_dataset()
     if osp.isfile(dataset_name):
         return load_synthetic_dataset(dataset_name)
     raise RuntimeError(f'Unknown dataset {dataset_name}. Please provide path to synthetic dataset file or correctly write real dataset name')
@@ -117,9 +135,13 @@ def QRGivens(A):
         G[col, row] = -s
 
 
-        R = np.dot(G, R)
 
-        Q = np.dot(Q, G.T)
+        R[col], R[row] = R[col]*c + R[row]*(-s), R[col]*s + R[row]*c
+        Q[:, col], Q[:, row] = Q[:, col]*c + Q[:, row]*(-s), Q[:, col]*s + Q[:, row]*c
+
+        # R = np.dot(G, R)
+
+        # Q = np.dot(Q, G.T)
 
     return Q, R, phi_list
 
@@ -163,5 +185,4 @@ def find_closest_spd(A):
     return v @ np.diag(w) @ v.T
 
 if __name__ == '__main__':
-    seg_data = load_seg_data()
-    print(seg_data.shape, seg_data[0])
+    data = load_digits_dataset()
