@@ -88,6 +88,8 @@ def load_dataset(dataset_name):
 def _givens_rotation_matrix_entries(a, b):
     """Compute matrix entries for Givens rotation.[[cos(phi), -sin(phi)], [sin(phi), cos(phi)]]"""
     r = hypot(a, b)
+    if r < 1e-05:
+        return (1, 0)
     c = a/r
     s = -b/r
 
@@ -115,35 +117,19 @@ def QRGivens(A):
         # zero-out lower triangular matrix entries.
         (c, s) = _givens_rotation_matrix_entries(R[col, col], R[row, col])
 
-
         phi = np.arccos(c)
-        # if sin(phi) < 0
         if s > 0:
             phi = -phi
 
-        # Turning first element into 1 instead of -1
         if c * R[col, col] - s * R[row, col] < 0:
             phi = phi - np.pi
             c = -c
             s = -s
-
-        G = np.identity(num_rows)
-        G[col, col] = c
-        G[row, row] = c
         phi_list.append(phi)
-        G[row, col] = s
-        G[col, row] = -s
-
-
 
         R[col], R[row] = R[col]*c + R[row]*(-s), R[col]*s + R[row]*c
         Q[:, col], Q[:, row] = Q[:, col]*c + Q[:, row]*(-s), Q[:, col]*s + Q[:, row]*c
-
-        # R = np.dot(G, R)
-
-        # Q = np.dot(Q, G.T)
-
-    return Q, R, phi_list
+    return np.array(phi_list)
 
 
 def Givens2Matrix(phi_list):
@@ -162,7 +148,7 @@ def Givens2Matrix(phi_list):
 
         G[row, col] = s
         G[col, row] = -s
-
+        
         ret_val = np.dot(ret_val, G.T)
         
     return ret_val

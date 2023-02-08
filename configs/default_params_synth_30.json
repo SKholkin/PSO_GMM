@@ -3,7 +3,7 @@
     "n_particles": 50,
     "amplitude": 0.05,
     "rank": 10,
-    "init_scale": 0.3,
+    "init_scale": 0.2,
     "T2": 100,
     "T1": 5,
     "EM_init_method": "k-means++",

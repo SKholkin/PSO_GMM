@@ -5,7 +5,7 @@
     "rank": 10,
     "init_scale": 0.005,
     "T2": 500,
-    "T1": 5,
+    "T1": 3,
     "EM_init_method": "k-means++",
     "n_components": 10 ,
     "n_iters": 20

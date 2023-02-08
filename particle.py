@@ -1,6 +1,8 @@
 
 import numpy as np
-from utils import Givens2Matrix, QRGivens, eigh_with_fixed_direction_range
+from utils import Givens2Matrix, QRGivens, eigh_with_fixed_direction_range, find_closest_spd
+from python_example import Givens2Matrix_double as Givens2Matrix
+from python_example import QRGivens_double as QRGivens
 from copy import deepcopy
 from sklearn.mixture import GaussianMixture
 
@@ -62,6 +64,7 @@ class EigenParticle:
         weights,
         means,
         prec_matrix_list,
+        data,
         init_std=0.001,
         eig_val_max=1
     ):
@@ -71,6 +74,7 @@ class EigenParticle:
         self.data_dim = data_dim
         self.n_components = n_components
         self.amplitude = amplitude
+        self.data = data
         
         self.velocity = { 
             'weights' : np.zeros(n_components),
@@ -93,15 +97,17 @@ class EigenParticle:
             self.position = {
                 'weights' : weights,
                 'means' : means + np.random.normal(0, init_std, size=(n_components, data_dim)),
-                'eigenvalues_prec' : np.random.uniform(1, eig_val_max, size=(n_components, data_dim)),
                 'givens_angles' : np.random.uniform(-np.pi, np.pi, size=(n_components, int(data_dim * (data_dim - 1) / 2)))
             }
+            #print('Eigvals: ', [np.mean(np.linalg.eigvals(item)) for item in prec_matrix_list], ' vs ', eig_val_max)
+            
+            self.position['eigenvalues_prec'] = np.array([np.random.uniform(-np.mean(eig_val_max), np.mean(eig_val_max), size=data_dim) for i in range(self.n_components)])
         else:
-            # decompose covariance matrix
+            # decompose prec matrix list
             for i in range(n_components):
                 eigenvalues, v = eigh_with_fixed_direction_range(cov_matrix_list[i])
                 # eigenvalues, v = np.linalg.eigh(cov_matrix_list[i])
-                q, r, givens_rotations = QRGivens(v)
+                givens_rotations = QRGivens(v)
                 
                 self.position['eigenvalues_prec'][i] = eigenvalues
                 self.position['givens_angles'][i] = givens_rotations
@@ -118,7 +124,7 @@ class EigenParticle:
         for k in range(self.n_components):
             eigvals = self.position['eigenvalues_prec'][k]
             givens_rotations = self.position['givens_angles'][k]
-            v = Givens2Matrix(givens_rotations)
+            v = Givens2Matrix(np.expand_dims(givens_rotations, axis=1))
             cov_matr = v @ np.diag(eigvals) @ v.T
             ret_val.append(cov_matr)
 
@@ -126,11 +132,11 @@ class EigenParticle:
 
     def reorder_wrt(self, reference):
 
-        for k in range(self.n_components):
+        for k in range(self.n_components):  
             eigen_in = self.position['eigenvalues_prec'][k]
             eigen_ref = reference.position['eigenvalues_prec'][k]
-            v_ref = np.array(Givens2Matrix(reference.position['givens_angles'][k]))
-            v_in = np.array(Givens2Matrix(self.position['givens_angles'][k]))
+            v_ref = np.array(Givens2Matrix(np.expand_dims(reference.position['givens_angles'][k], axis=1)))
+            v_in = np.array(Givens2Matrix(np.expand_dims(self.position['givens_angles'][k], axis=1)))
 
             eigen_res = []
             v_res = np.zeros_like(v_ref)
@@ -142,24 +148,26 @@ class EigenParticle:
             
             self.position['eigenvalues_prec'][k] = np.array(eigen_res)
 
-            q, r, givens_rotations = QRGivens(np.array(v_res))
-
+            # from utils import QRGivens
+            givens_rotations = QRGivens(np.array(v_res)).squeeze()
+            
             self.position['givens_angles'][k] = np.array(givens_rotations)
+
 
     def calculate_LL(self, data):
         if self.random_init:
             prec_matrcies = np.zeros_like(self.basic_prec_matr)
             # construct prec matr addition
             for i in range(self.n_components):
-                v = Givens2Matrix(self.position['givens_angles'][i])
+                v = Givens2Matrix(np.expand_dims(self.position['givens_angles'][i], axis=1))
                 addition = v @ np.diag(self.position['eigenvalues_prec'][i]) @ v.T
-                # print(np.linalg.norm(self.basic_prec_matr[i]), np.linalg.norm(addition))
-                prec_matrcies[i] = self.basic_prec_matr[i] + addition
+                prec_matrcies[i] = find_closest_spd(self.basic_prec_matr[i] + addition)
         else:
             cov_matr_list = self.get_cov_matrices()
             prec_matrcies = [np.linalg.inv(cov_matr) for cov_matr in cov_matr_list]
+            
         gmm = GaussianMixture(n_components=self.position['weights'].shape[0], covariance_type='full', weights_init=self.position['weights'], means_init=self.position['means'], precisions_init=prec_matrcies, max_iter=100)
-
+        
         cholesky = np.zeros_like(prec_matrcies)
         
         for i in range(self.n_components):
@@ -169,7 +177,32 @@ class EigenParticle:
         gmm.means_ = self.position['means']
         gmm.precisions_cholesky_ = cholesky
         return gmm.score(data)
+    
+    def _calculate_LL_by_pos(self, data, position):
+        if self.random_init:
+            prec_matrcies = np.zeros_like(self.basic_prec_matr)
+            # construct prec matr addition
+            for i in range(self.n_components):
+                v = Givens2Matrix(np.expand_dims(position['givens_angles'][i], axis=1))
+                addition = v @ np.diag(position['eigenvalues_prec'][i]) @ v.T
+                prec_matrcies[i] = find_closest_spd(self.basic_prec_matr[i] + addition)
+        else:
+            cov_matr_list = self.get_cov_matrices()
+            prec_matrcies = [np.linalg.inv(cov_matr) for cov_matr in cov_matr_list]
+            
+        gmm = GaussianMixture(n_components=position['weights'].shape[0], covariance_type='full', weights_init=position['weights'], means_init=position['means'], precisions_init=prec_matrcies, max_iter=100)
+        
+        cholesky = np.zeros_like(prec_matrcies)
+        
+        for i in range(self.n_components):
+            cholesky[i] = np.linalg.cholesky(prec_matrcies[i])
 
+        gmm.weights_ = position['weights']
+        gmm.means_ = position['means']
+        gmm.precisions_cholesky_ = cholesky
+        return gmm.score(data)
+        
+  
     def run_em(self, data):
         T2 = 200
 
@@ -177,17 +210,36 @@ class EigenParticle:
             prec_matrcies = np.zeros_like(self.basic_prec_matr)
             # construct prec matr addition
             for i in range(self.n_components):
-                v = Givens2Matrix(self.position['givens_angles'][i])
+
+                v = Givens2Matrix(np.expand_dims(self.position['givens_angles'][i], axis=1))
                 addition = v @ np.diag(self.position['eigenvalues_prec'][i]) @ v.T
-                prec_matrcies[i] = self.basic_prec_matr[i] + addition
+                prec_matrcies[i] = find_closest_spd(self.basic_prec_matr[i] + addition)
         else:
             prec_matrcies = self.get_cov_matrices()
 
+        # print(prec_matrcies.shape, self.position['means'].shape)
+        # print(data.shape)
         gmm = GaussianMixture(n_components=self.position['weights'].shape[0], covariance_type='full', weights_init=self.position['weights'], means_init=self.position['means'], precisions_init=prec_matrcies, max_iter=T2)
         gmm.fit(data)
         weights = gmm.weights_
         means = gmm.means_
         precisions = gmm.precisions_
+        
+        self.position['weights'] = weights
+        self.position['means'] = means
+
+        for i in range(self.n_components):
+            eigenvalues, v = eigh_with_fixed_direction_range(precisions[i])
+            # eigenvalues, v = np.linalg.eigh(cov_matrix_list[i])
+            givens_rotations = QRGivens(v).squeeze()
+            
+            self.position['eigenvalues_prec'][i] = eigenvalues
+            self.position['givens_angles'][i] = givens_rotations
+
+        if gmm.score(data) > self.person_best_fitness_score:
+            self.person_best_fitness_score = gmm.score(data)
+            self.person_best = self.position
+        
         return gmm.score(data)
 
     def step(self, c_1, c_2, r_1, r_2):
@@ -204,6 +256,12 @@ class EigenParticle:
             )
             self.position[key] += self.amplitude * self.velocity[key]
         self.trajectory.append(self.position)
+
+        if self.calculate_LL(self.data) > self._calculate_LL_by_pos(self.data, self.person_best):
+            print(self.calculate_LL(self.data), self._calculate_LL_by_pos(self.data, self.person_best))
+            self.position = self.person_best.position
+
+
 
 
 if __name__ == '__main__':
@@ -237,7 +295,7 @@ if __name__ == '__main__':
         v_perm[:, i] = v[:, perm[i]]
         eigenvalues_perm[i] = particle_1.position['eigenvalues_cov'][0][perm[i]]
 
-    q, r, givens_angles_perm = QRGivens(v_perm)
+    givens_angles_perm = QRGivens(v_perm)
 
     particle_1.position['givens_angles'][0] = givens_angles_perm
     particle_1.position['eigenvalues_cov'][0] = eigenvalues_perm
