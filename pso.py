@@ -79,7 +79,7 @@ class PSO():
                 self.basic_prec_matr[i] = basic_gmm.precisions_cholesky_[i] @ basic_gmm.precisions_cholesky_[i].T
             self.basic_gmm = basic_gmm
 
-        self.particles = [Particle(self.n_components, self.data_dim, self.rank, self.amplitude, self.init_scale, self.basic_weights)
+        self.particles = [Particle(self.n_components, self.data_dim, self.rank, self.amplitude, self.init_scale, self.basic_weights, self.basic_means)
                           for _ in range(self.n_particles)]
         self._init_global()
         
@@ -101,7 +101,10 @@ class PSO():
     def calculate_log_likelihood_gmm(self, particle: Particle):
         weights = particle.position['weights']
 
-        means = deepcopy(self.basic_means) + particle.position['delta_mean']
+        # means = deepcopy(self.basic_means) + particle.position['delta_mean']
+        means = particle.position['delta_mean']
+
+        # means = deepcopy(self.basic_means)
 
         prec_matr = deepcopy(self.basic_prec_matr)
 
@@ -109,10 +112,10 @@ class PSO():
         
         for i in range(self.n_components):
 
-            prec_matr[i] += np.diag(particle.position['delta_diag_prec'][i] ** 2)
+            # prec_matr[i] += np.diag(particle.position['delta_diag_prec'][i] ** 2)
 
-            for k in range(self.config.rank):
-                prec_matr[i] += particle.position['delta_param_prec_eigval'][i][k] * (particle.position['delta_param_prec'][i][k] @ particle.position['delta_param_prec'][i][k].T)
+            # for k in range(self.config.rank):
+            #     prec_matr[i] += particle.position['delta_param_prec_eigval'][i][k] * (particle.position['delta_param_prec'][i][k] @ particle.position['delta_param_prec'][i][k].T)
             prec_matr[i] = find_closest_spd(prec_matr[i])
             cholesky[i] = np.linalg.cholesky(prec_matr[i])
 
@@ -132,7 +135,7 @@ class PSO():
     def reinit_particles(self, init_scale=None, inplace=True):
         if init_scale is None:
             init_scale = self.init_scale
-        particles = [Particle(self.n_components, self.data_dim, self.rank, self.amplitude, init_scale, self.basic_weights) for _ in range(self.n_particles)]
+        particles = [Particle(self.n_components, self.data_dim, self.rank, self.amplitude, init_scale, self.basic_weights, self.basic_means) for _ in range(self.n_particles)]
         if inplace:
             self.particles = particles
         return particles
@@ -412,7 +415,7 @@ class PSOEigen:
                     if best_pso_em_score < new_ll:
                         best_pso_em_score = new_ll
                         best_particle = self.particles[j]
-                # print("Time for GMM reinit: ", time.time() - start, ' sec')
+                print("Time for GMM reinit: ", time.time() - start, ' sec')
                 
                 for i in range(len(self.particles)):
                     score = self.particles[i].calculate_LL(self.data)
@@ -435,23 +438,23 @@ class PSOEigen:
                 #         best_ll_after_transforn_score = score
 
                 #     f.write(f'Particle LL (regular step): {self.particles[i].calculate_LL(self.data)} \n')
+                for i in range(20):
+                    c_1 = np.random.uniform(0, 1)
+                    c_2 = np.random.uniform(0, 1)
+                    for i in range(len(self.particles)):
+                        self.particles[i].step(c_1, c_2, self.r_1, self.r_2)
+                    f.flush()
 
-                # c_1 = np.random.uniform(0, 1)
-                # c_2 = np.random.uniform(0, 1)
-                # for i in range(len(self.particles)):
-                #     self.particles[i].step(c_1, c_2, self.r_1, self.r_2)
-                f.flush()
+                    changed = False
+                    for particle in self.particles:
+                        if particle.person_best_fitness_score > self.global_fitness_score:
+                            self.global_fitness_score = particle.person_best_fitness_score
+                            self.global_best = particle
+                            changed = True
 
-                changed = False
-                for particle in self.particles:
-                    if particle.person_best_fitness_score > self.global_fitness_score:
-                        self.global_fitness_score = particle.person_best_fitness_score
-                        self.global_best = particle
-                        changed = True
-
-                for p in self.particles:
-                    p.global_best = self.global_best.position
-                
+                    for p in self.particles:
+                        p.global_best = self.global_best.position
+                    
                 if changed:
                     for particle in self.particles:
                         particle.reorder_wrt(self.global_best)

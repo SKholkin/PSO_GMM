@@ -15,6 +15,7 @@ class Particle():
         amplitude,
         init_scale,
         weights,
+        means
     ):
         """
         Particle
@@ -32,7 +33,7 @@ class Particle():
 
         self.position = {
             'weights' : weights,
-            'delta_mean' : np.random.normal(0, init_scale, size=(n_components, data_dim)),
+            'delta_mean' : means + np.random.normal(0, init_scale, size=(n_components, data_dim)),
             'delta_diag_prec' : np.random.normal(0, init_scale, size=(n_components, data_dim)),
             'delta_param_prec' : np.random.normal(0, init_scale, size=(n_components, rank, data_dim)),
             'delta_param_prec_eigval' : np.random.normal(0, init_scale, size=(n_components, rank))
@@ -65,7 +66,7 @@ class EigenParticle:
         means,
         prec_matrix_list,
         data,
-        init_std=0.001,
+        init_std=0.1,
         eig_val_max=1
     ):
         """
@@ -101,7 +102,7 @@ class EigenParticle:
             }
             #print('Eigvals: ', [np.mean(np.linalg.eigvals(item)) for item in prec_matrix_list], ' vs ', eig_val_max)
             
-            self.position['eigenvalues_prec'] = np.array([np.random.uniform(-np.mean(eig_val_max), np.mean(eig_val_max), size=data_dim) for i in range(self.n_components)])
+            self.position['eigenvalues_prec'] = np.array([np.random.uniform(0, np.mean(eig_val_max), size=data_dim) for i in range(self.n_components)])
         else:
             # decompose prec matrix list
             for i in range(n_components):
@@ -157,6 +158,8 @@ class EigenParticle:
     def calculate_LL(self, data):
         if self.random_init:
             prec_matrcies = np.zeros_like(self.basic_prec_matr)
+            # prec_matrcies = self.basic_prec_matr
+
             # construct prec matr addition
             for i in range(self.n_components):
                 v = Givens2Matrix(np.expand_dims(self.position['givens_angles'][i], axis=1))
@@ -181,6 +184,8 @@ class EigenParticle:
     def _calculate_LL_by_pos(self, data, position):
         if self.random_init:
             prec_matrcies = np.zeros_like(self.basic_prec_matr)
+
+            # prec_matrcies = self.basic_prec_matr
             # construct prec matr addition
             for i in range(self.n_components):
                 v = Givens2Matrix(np.expand_dims(position['givens_angles'][i], axis=1))
@@ -225,7 +230,7 @@ class EigenParticle:
         means = gmm.means_
         precisions = gmm.precisions_
         
-        self.position['weights'] = weights
+        # self.position['weights'] = weights
         self.position['means'] = means
 
         for i in range(self.n_components):
@@ -259,7 +264,7 @@ class EigenParticle:
 
         if self.calculate_LL(self.data) > self._calculate_LL_by_pos(self.data, self.person_best):
             print(self.calculate_LL(self.data), self._calculate_LL_by_pos(self.data, self.person_best))
-            self.position = self.person_best.position
+            self.position = self.person_best
 
 
 
