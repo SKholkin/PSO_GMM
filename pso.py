@@ -316,6 +316,8 @@ class PSOEigen:
         self.config = config
         self.n_particles = config.n_particles
         self.amplitude = config.amplitude
+        self.amplitude = 0.001
+
         self.n_components = config.n_components
         self.rank = config.rank
         self.init_scale = config.init_scale
@@ -374,12 +376,10 @@ class PSOEigen:
                     self.global_best = p
 
         for p in self.particles:
-            p.reorder_wrt(self.global_best)
+            p.reorder_wrt(self.global_best.position)
 
     def run(self):
         with open(self.log_file, 'w+') as f:
-            max_iter = 31
-            T1 = 10
             # make inital GMM
             # scatter points around init GMM
             # contol amplitude of scattering by eigenvalues max values
@@ -397,39 +397,43 @@ class PSOEigen:
             
             self.config.eig_val_max  = [eigvals[i] * coef for i in range(len(eigvals))]
 
-            self.particles = [EigenParticle(self.n_components, self.data[0].shape[0], self.amplitude, weights, means, basic_prec_matr, self.data, eig_val_max=self.config.eig_val_max) for i in range(self.n_particles)]
-
+            self.particles = [EigenParticle(self.n_components, self.data[0].shape[0], self.amplitude, weights, means, basic_prec_matr, self.data, means_coef=self.config.eigvals_coef, eig_val_max=self.config.eig_val_max) for i in range(self.n_particles)]
+            self.particles[-1] = EigenParticle(self.n_components, self.data[0].shape[0], self.amplitude, weights, means, basic_prec_matr, self.data, means_coef=0, eig_val_max=0)
             f.flush()
             self.init_global_best()
 
             best_pso_em_score = -np.inf
             best_ll_after_transforn_score = -np.inf
 
-            for i in range(T1):
+            best_particle = self.particles[0]
+
+            for i in range(self.T1):
                 f.write(f'Iter {i}\n')
                 start = time.time()
-                best_particle = self.particles[0]
                 for j in range(len(self.particles)):
-                    new_ll = self.particles[j].run_em(self.data)
-                    f.write('New LL: ' + str(new_ll) + '\n')
+                    new_ll = self.particles[j].run_em(self.data, self.T2)
+
                     if best_pso_em_score < new_ll:
                         best_pso_em_score = new_ll
                         best_particle = self.particles[j]
+                    f.write('New LL: ' + str(new_ll) + '\n')
                 print("Time for GMM reinit: ", time.time() - start, ' sec')
                 
-                for i in range(len(self.particles)):
-                    score = self.particles[i].calculate_LL(self.data)
-                    if best_ll_after_transforn_score < score:
-                        best_ll_after_transforn_score = score
+                for j in range(len(self.particles)):
+                    new_ll = self.particles[j].calculate_LL(self.data)
 
-                    f.write(f'Particle LL: {self.particles[i].calculate_LL(self.data)} \n')
+
+                    # if best_ll_after_transforn_score < score:
+                    #     best_ll_after_transforn_score = score
+
+                    f.write(f'Particle LL: {self.particles[j].calculate_LL(self.data)} \n')
                 # print("Time for LL calculation (including QRGivens): ", time.time() - start, ' sec')
                 # f.flush()
 
-                means = best_particle.position['means']
-                weights = best_particle.position['weights']
-                basic_prec_matr = best_particle.get_cov_matrices()
-                self.particles = [EigenParticle(self.n_components, self.data[0].shape[0], self.amplitude, weights, means, basic_prec_matr, data=self.data, eig_val_max=self.config.eig_val_max) for i in range(self.n_particles)]
+                # means = best_particle.position['means']
+                # weights = best_particle.position['weights']
+                # basic_prec_matr = best_particle.get_cov_matrices()
+                self.particles = [EigenParticle(self.n_components, self.data[0].shape[0], self.amplitude, weights, means, basic_prec_matr, data=self.data, means_coef=self.config.eigvals_coef, eig_val_max=self.config.eig_val_max) for i in range(self.n_particles)]
                 self.init_global_best()
 
                 # for i in range(len(self.particles)):
@@ -438,6 +442,7 @@ class PSOEigen:
                 #         best_ll_after_transforn_score = score
 
                 #     f.write(f'Particle LL (regular step): {self.particles[i].calculate_LL(self.data)} \n')
+
                 for i in range(20):
                     c_1 = np.random.uniform(0, 1)
                     c_2 = np.random.uniform(0, 1)
@@ -455,9 +460,9 @@ class PSOEigen:
                     for p in self.particles:
                         p.global_best = self.global_best.position
                     
-                if changed:
-                    for particle in self.particles:
-                        particle.reorder_wrt(self.global_best)
+                    if changed:
+                        for particle in self.particles:
+                            particle.reorder_wrt(self.global_best.position)
 
             # run reference EM
 
@@ -472,3 +477,4 @@ class PSOEigen:
             f.write(f'\n Global best: {self.global_fitness_score}')
 
         return {'em': basic_em_score, 'pso': best_pso_em_score, 'transformed': best_ll_after_transforn_score, 'ref_em': ref_em_score}
+

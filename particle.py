@@ -66,7 +66,7 @@ class EigenParticle:
         means,
         prec_matrix_list,
         data,
-        init_std=0.1,
+        means_coef,
         eig_val_max=1
     ):
         """
@@ -76,6 +76,8 @@ class EigenParticle:
         self.n_components = n_components
         self.amplitude = amplitude
         self.data = data
+
+        self.means_coef = means_coef
         
         self.velocity = { 
             'weights' : np.zeros(n_components),
@@ -91,13 +93,12 @@ class EigenParticle:
             'givens_angles' : np.zeros((n_components, int(data_dim * (data_dim - 1) / 2)))
         }
 
-
         self.random_init = True
         if self.random_init:
             self.basic_prec_matr = prec_matrix_list
             self.position = {
                 'weights' : weights,
-                'means' : means + np.random.normal(0, init_std, size=(n_components, data_dim)),
+                'means' : means + np.random.normal(0, self.means_coef * np.mean(means), size=(n_components, data_dim)),
                 'givens_angles' : np.random.uniform(-np.pi, np.pi, size=(n_components, int(data_dim * (data_dim - 1) / 2)))
             }
             #print('Eigvals: ', [np.mean(np.linalg.eigvals(item)) for item in prec_matrix_list], ' vs ', eig_val_max)
@@ -129,23 +130,35 @@ class EigenParticle:
             cov_matr = v @ np.diag(eigvals) @ v.T
             ret_val.append(cov_matr)
 
-        return ret_val
-
+        return self.best_prec
+    
     def reorder_wrt(self, reference):
 
         for k in range(self.n_components):  
             eigen_in = self.position['eigenvalues_prec'][k]
-            eigen_ref = reference.position['eigenvalues_prec'][k]
-            v_ref = np.array(Givens2Matrix(np.expand_dims(reference.position['givens_angles'][k], axis=1)))
+            eigen_ref = reference['eigenvalues_prec'][k]
+            from python_example import Givens2Matrix_double as Givens2Matrix
+
+            v_ref = np.array(Givens2Matrix(np.expand_dims(reference['givens_angles'][k], axis=1)))
             v_in = np.array(Givens2Matrix(np.expand_dims(self.position['givens_angles'][k], axis=1)))
 
             eigen_res = []
             v_res = np.zeros_like(v_ref)
         
+            untaken_inx = [i for i in range(self.data_dim)]
+            permutation = np.zeros([self.data_dim], dtype=np.int32)
             for i in range(self.data_dim):
-                i_opt = np.argmax([abs(np.dot(v_ref[:, i], v_in[:, j])) for j in range(self.data_dim)])
-                v_res[:, i] = v_in[:, i_opt]
-                eigen_res.append(eigen_in[i_opt])
+                i_opt = untaken_inx[np.argmax([abs(np.dot(v_ref[:, i], v_in[:, j])) for j in untaken_inx])]
+                untaken_inx.remove(i_opt)
+                permutation[i] = i_opt
+                
+                v_res[i] = deepcopy(v_in[:, i_opt])
+                eigen_res.append(deepcopy(eigen_in[i_opt]))
+
+            v_res = v_in[:, permutation]
+            eigen_res = eigen_in[permutation]
+            
+            # print('Norm: ', np.linalg.norm( (v_res @  v_res.T) - (v_in @ v_in.T) ), 'With eig',  np.linalg.norm( (v_res @ np.diag(np.array(eigen_res)) @ v_res.T) - (v_in @ np.diag(eigen_in) @ v_in.T) ))
             
             self.position['eigenvalues_prec'][k] = np.array(eigen_res)
 
@@ -153,7 +166,6 @@ class EigenParticle:
             givens_rotations = QRGivens(np.array(v_res)).squeeze()
             
             self.position['givens_angles'][k] = np.array(givens_rotations)
-
 
     def calculate_LL(self, data):
         if self.random_init:
@@ -208,8 +220,7 @@ class EigenParticle:
         return gmm.score(data)
         
   
-    def run_em(self, data):
-        T2 = 200
+    def run_em(self, data, T2):
 
         if self.random_init:
             prec_matrcies = np.zeros_like(self.basic_prec_matr)
@@ -229,6 +240,10 @@ class EigenParticle:
         weights = gmm.weights_
         means = gmm.means_
         precisions = gmm.precisions_
+        self.best_prec = deepcopy(precisions)
+
+        for i in range(self.n_components):
+            precisions[i] = find_closest_spd(precisions[i] - self.basic_prec_matr[i])
         
         # self.position['weights'] = weights
         self.position['means'] = means
