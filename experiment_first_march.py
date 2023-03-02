@@ -10,6 +10,7 @@ import os
 import pandas as pd
 import numpy as np
 import datetime
+from tqdm import tqdm
 
 def load_dataset(dataset_name):
     return load_seg_data()
@@ -31,9 +32,10 @@ if __name__ == "__main__":
     config = PSOConfig.from_json(os.path.join('configs', 'default_params.json'))
 
     results = pd.DataFrame(columns=['T1', 'LogLikelihood, mean', 'LogLikelihood, std', 'Alpha', 'Dataset'])
+
     for alpha in args.a:
         stats = []
-        for i in range(args.n_runs):
+        for i in tqdm(list(range(args.n_runs))):
             config.eigvals_coef = alpha
             config.T1 = args.T1
             config.particle_reinit = args.particle_reinit
@@ -42,8 +44,9 @@ if __name__ == "__main__":
             
             stats = pso_algo.run()['pso']
 
-        print(f'Alpha = {alpha}, T1 = {args.T1}, Particels reinit {args.particle_reinit}: {np.array(stats).mean()} +- {np.array(stats).std()}')
+        # print(f'Alpha = {alpha}, T1 = {args.T1}, Particels reinit {args.particle_reinit}: {np.array(stats).mean()} +- {np.array(stats).std()}')
         results = results.append({'T1': args.T1, 'Alpha': alpha, 'Dataset': args.dataset, 'LogLikelihood, mean': np.array(stats).mean(), 'LogLikelihood, std': np.array(stats).std()}, ignore_index=True)
+    print('Results: ')
     print(results)
     now = datetime.datetime.now()
     now_str = now.strftime("%d_%m_%Y_%H_%M_%S")

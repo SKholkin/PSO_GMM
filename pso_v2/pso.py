@@ -34,7 +34,7 @@ class PSOConfig(Dict):
         
 
 class PSOEigen:
-    def __init__(self, data, config: PSOConfig, verbose=0):
+    def __init__(self, data, config: PSOConfig, verbose=False):
         self.config = config
         self.n_particles = config.n_particles
         self.amplitude = config.amplitude
@@ -71,7 +71,6 @@ class PSOEigen:
         self.particle_trajectories = np.zeros((self.n_particles, self.T1))
 
     def basic_gmm_init(self):
-        print(self.T2, self.T1)
         gmm = GaussianMixture(n_components=self.n_components, covariance_type='full', n_init=self.n_particles, max_iter=self.T2 * self.T1,  init_params='k-means++', verbose=self.verbose, verbose_interval=1)
         gmm.fit(self.data)
         weights = gmm.weights_
@@ -120,7 +119,8 @@ class PSOEigen:
             start = time.time()
             weights, means, basic_prec_matr, gmm = self.basic_gmm_init()
 
-            print("Time for GMM init: ", time.time() - start, ' sec')
+            if self.verbose:
+                print("Time for GMM init: ", time.time() - start, ' sec')
 
             basic_em_score = gmm.score(self.data)
             f.write('Basic GMM LL: ' + str(gmm.score(self.data)) + '\n')
@@ -174,13 +174,15 @@ class PSOEigen:
                     
                     new_ll = self.particles[j].run_em(self.data, self.T2)
                     self.particle_trajectories[j, i] = new_ll
-                    print(f'Particle {j} New LL', new_ll)
+                    if self.verbose:
+                        print(f'Particle {j} New LL', new_ll)
 
                     if best_pso_em_score < new_ll:
                         best_pso_em_score = new_ll
                         best_particle = self.particles[j]
                     # f.write('New LL: ' + str(new_ll) + '\n')
-                print("Time for GMM reinit: ", time.time() - start, ' sec')
+                if self.verbose:
+                    print("Time for GMM reinit: ", time.time() - start, ' sec')
                 
                 # for j in range(len(self.particles)):
                 #     new_ll = self.particles[j].calculate_LL(self.data)
@@ -191,9 +193,9 @@ class PSOEigen:
                 # means = best_particle.position['means']
                 # weights = best_particle.position['weights']
                 # basic_prec_matr = best_particle.get_cov_matrices()
-                print(self.config.particle_reinit)
                 if self.config.particle_reinit:
-                    print('Paricles reinit')
+                    if self.verbose:
+                        print('Paricles reinit')
                     self.particles = [EigenParticle(self.n_components, self.data[0].shape[0], self.amplitude, weights, means, basic_prec_matr, data=self.data, means_coef=self.config.eigvals_coef, eig_val_max=self.config.eig_val_max) for i in range(self.n_particles)]
                     self.init_global_best()
 
