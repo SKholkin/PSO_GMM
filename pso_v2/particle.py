@@ -1,59 +1,11 @@
 
+
 import numpy as np
 from utils import Givens2Matrix, QRGivens, eigh_with_fixed_direction_range, find_closest_spd
 from python_example import Givens2Matrix_double as Givens2Matrix
 from python_example import QRGivens_double as QRGivens
 from copy import deepcopy
 from sklearn.mixture import GaussianMixture
-
-class Particle():
-    def __init__(
-        self, 
-        n_components,
-        data_dim, 
-        rank, 
-        amplitude,
-        init_scale,
-        weights,
-        means
-    ):
-        """
-        Particle
-        """
-        self.amplitude = amplitude
-        self.keys = ['weights', 'delta_mean', 'delta_diag_prec', 'delta_param_prec', 'delta_param_prec_eigval']
-        
-        self.velocity = { 
-            'weights' : np.zeros(n_components),
-            'delta_mean' : np.zeros((n_components, data_dim)),
-            'delta_diag_prec' : np.zeros((n_components, data_dim)),
-            'delta_param_prec' : np.zeros((n_components, rank, data_dim)),
-            'delta_param_prec_eigval' : np.zeros((n_components, rank))
-        }
-
-        self.position = {
-            'weights' : weights,
-            'delta_mean' : means + np.random.normal(0, init_scale, size=(n_components, data_dim)),
-            'delta_diag_prec' : np.random.normal(0, init_scale, size=(n_components, data_dim)),
-            'delta_param_prec' : np.random.normal(0, init_scale, size=(n_components, rank, data_dim)),
-            'delta_param_prec_eigval' : np.random.normal(0, init_scale, size=(n_components, rank))
-        }
-        
-        self.trajectory = [self.position]
-        self.person_best = self.position
-        self.global_best = self.position
-        self.person_best_fitness_score = -np.inf
-        
-        
-    def step(self, c_1, c_2, r_1, r_2):
-        for key in self.keys:
-            self.velocity[key] = (
-                c_1 * r_1[key] * (self.person_best[key] - self.position[key]) + 
-                c_2 * r_2[key] * (self.global_best[key] - self.position[key])
-            )
-            self.position[key] += self.amplitude * self.velocity[key]
-        self.trajectory.append(self.position)
-
 
 
 class EigenParticle:
@@ -123,10 +75,15 @@ class EigenParticle:
         self.person_best_fitness_score = -np.inf
 
     def mutate(self):
-        mutation_coef = 0.05
-        self.position['means'] += np.random.normal(0, mutation_coef * self.means_coef * np.mean(self.position['mean'].mean()), size=(self.n_components, self.data_dim))
+        mutation_coef = 0.01
+        self.position['means'] += np.random.normal(0, mutation_coef * self.means_coef * np.mean(self.position['means'].mean()), size=(self.n_components, self.data_dim))
         self.position['givens_angles'] += mutation_coef * np.random.uniform(-np.pi, np.pi, size=(self.n_components, int(self.data_dim * (self.data_dim - 1) / 2)))
-        self.position['eigenvalues_prec'] += np.array([np.random.uniform(0, mutation_coef * np.mean(self.eig_val_max), size=self.data_dim) for i in range(self.n_components)])
+        self.position['eigenvalues_prec'] += np.array([np.random.uniform(mutation_coef * np.mean(self.eig_val_max), mutation_coef * np.mean(self.eig_val_max), size=self.data_dim) for i in range(self.n_components)])
+
+    def diversity(self, reference, threshold=1e-1):
+        fraction = 0.01
+        delta = np.abs(self.position['eigenvalues_prec'] - reference.position['eigenvalues_prec']).mean()
+        return delta / self.position['eigenvalues_prec'].mean() > fraction
 
     def get_cov_matrices(self):
         ret_val = []
@@ -241,37 +198,32 @@ class EigenParticle:
 
         # print(prec_matrcies.shape, self.position['means'].shape)
         # print(data.shape)
-        gmm = GaussianMixture(n_components=self.position['weights'].shape[0], covariance_type='full', weights_init=self.position['weights'], means_init=self.position['means'], precisions_init=prec_matrcies, max_iter=T2)
+        gmm = GaussianMixture(n_components=self.position['weights'].shape[0], covariance_type='full', weights_init=self.position['weights'], means_init=self.position['means'], precisions_init=prec_matrcies, max_iter=T2,  verbose=0, verbose_interval=1)
         gmm.fit(data)
-
-
         weights = gmm.weights_
         means = gmm.means_
         precisions = gmm.precisions_
+        self.best_prec = deepcopy(precisions)
 
-        self.set_params_after_em(weights, means, precisions, gmm.score(self.data))
+        for i in range(self.n_components):
+            precisions[i] = precisions[i] - self.basic_prec_matr[i]
         
-        # self.best_prec = deepcopy(precisions)
+        # self.position['weights'] = weights
+        self.position['means'] = means
 
-        # for i in range(self.n_components):
-        #     precisions[i] = find_closest_spd(precisions[i] - self.basic_prec_matr[i])
-        
-        # # self.position['weights'] = weights
-        # self.position['means'] = means
-
-        # for i in range(self.n_components):
-        #     eigenvalues, v = eigh_with_fixed_direction_range(precisions[i])
-        #     # eigenvalues, v = np.linalg.eigh(cov_matrix_list[i])
-        #     givens_rotations = QRGivens(v).squeeze()
+        for i in range(self.n_components):
+            eigenvalues, v = eigh_with_fixed_direction_range(precisions[i])
+            # eigenvalues, v = np.linalg.eigh(cov_matrix_list[i])
+            givens_rotations = QRGivens(v).squeeze()
             
-        #     self.position['eigenvalues_prec'][i] = eigenvalues
-        #     self.position['givens_angles'][i] = givens_rotations
+            self.position['eigenvalues_prec'][i] = eigenvalues
+            self.position['givens_angles'][i] = givens_rotations
 
-        # if gmm.score(data) > self.person_best_fitness_score:
-        #     self.person_best_fitness_score = gmm.score(data)
-        #     self.person_best = self.position
+        if gmm.score(data) > self.person_best_fitness_score:
+            self.person_best_fitness_score = gmm.score(data)
+            self.person_best = self.position
         
-        # return gmm.score(data)
+        return gmm.score(data)
 
     def set_params_after_em(self, weights, means, precisions, ll):
         self.best_prec = deepcopy(precisions)
@@ -292,7 +244,6 @@ class EigenParticle:
         if ll > self.person_best_fitness_score:
             self.person_best_fitness_score = ll
             self.person_best = self.position
-        
 
     def step(self, c_1, c_2, r_1, r_2):
         # reordering of cur point w.r.t. personal best
@@ -312,64 +263,3 @@ class EigenParticle:
         if self.calculate_LL(self.data) > self._calculate_LL_by_pos(self.data, self.person_best):
             print(self.calculate_LL(self.data), self._calculate_LL_by_pos(self.data, self.person_best))
             self.position = self.person_best
-
-
-
-
-if __name__ == '__main__':
-    d = 100
-    eigenvalues = np.random.uniform(1, 16, size=d)
-    rotation_angels = np.random.uniform(0, np.pi, size=int(d * (d - 1) / 2))
-    
-    v = Givens2Matrix(rotation_angels)
-    cov_matr = v @ np.diag(eigenvalues) @ v.T
-    cov_matr_list = [cov_matr]
-    means = np.random.uniform(0, 1, size=[1, d])
-
-    particle_1 = EigenParticle(n_components=1, data_dim=d, amplitude=1, weights=np.random.uniform(0, 1, size=[1, d]), means=means, cov_matrix_list=cov_matr_list)
-
-    particle_2 = EigenParticle(n_components=1, data_dim=d, amplitude=1, weights=np.random.uniform(0, 1, size=[1, d]), means=means, cov_matrix_list=[cov_matr])
-
-    assert np.allclose(particle_1.get_cov_matrices()[0], particle_2.get_cov_matrices()[0])
-
-    cov_matr_p_1 = particle_1.get_cov_matrices()[0]
-
-    v = Givens2Matrix(particle_1.position['givens_angles'][0])
-    
-    v_perm = v.copy()
-    eigenvalues_perm = particle_1.position['eigenvalues_prec'][0].copy()
-
-    assert np.allclose(cov_matr_p_1, v @ np.diag(particle_1.position['eigenvalues_prec'][0]) @ v.T)
-
-    perm = np.random.permutation(d)
-
-    for i in range(d):
-        v_perm[:, i] = v[:, perm[i]]
-        eigenvalues_perm[i] = particle_1.position['eigenvalues_cov'][0][perm[i]]
-
-    givens_angles_perm = QRGivens(v_perm)
-
-    particle_1.position['givens_angles'][0] = givens_angles_perm
-    particle_1.position['eigenvalues_cov'][0] = eigenvalues_perm
-
-    assert not np.allclose(particle_1.position['givens_angles'][0], particle_2.position['givens_angles'][0])
-    assert not np.allclose(particle_1.position['eigenvalues_cov'][0], particle_2.position['eigenvalues_cov'][0])
-
-    print((cov_matr_p_1 - v_perm @ np.diag(eigenvalues_perm) @ v_perm.T).max())
-    assert np.allclose(cov_matr_p_1, v_perm @ np.diag(eigenvalues_perm) @ v_perm.T)
-
-    print((particle_1.get_cov_matrices()[0] - particle_2.get_cov_matrices()[0]).max())
-    assert np.allclose(particle_1.get_cov_matrices()[0], particle_2.get_cov_matrices()[0], atol=1e-5)
-
-    print(particle_1.position['givens_angles'][0], particle_2.position['givens_angles'][0])
-
-    particle_1.reorder_wrt(particle_2)
-
-    assert np.allclose(particle_1.position['eigenvalues_cov'][0], particle_2.position['eigenvalues_cov'][0])
-
-    print(particle_1.position['givens_angles'][0], particle_2.position['givens_angles'][0])
-    print((particle_1.position['givens_angles'][0] - particle_2.position['givens_angles'][0]).mean())
-
-    assert np.allclose(particle_1.position['givens_angles'][0], particle_2.position['givens_angles'][0], atol=1e-05)
-
-    print('Testing is succesfull!')
