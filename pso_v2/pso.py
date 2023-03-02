@@ -109,7 +109,8 @@ class PSOEigen:
             #     p.mutate()
 
             if not p.diversity(self.global_best) and i != self.global_best_id:
-                print('MUTATION!')
+                if self.verbose:
+                    print('MUTATION!')
                 
                 p.mutate()
 

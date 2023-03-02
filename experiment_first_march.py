@@ -35,17 +35,20 @@ if __name__ == "__main__":
 
     for alpha in args.a:
         stats = []
+        print(f'Alpah: {alpha}')
         for i in tqdm(list(range(args.n_runs))):
             config.eigvals_coef = alpha
             config.T1 = args.T1
             config.particle_reinit = args.particle_reinit
             
-            pso_algo = PSOEigen(data, config)
+            pso_algo = PSOEigen(data, config, verbose=False)
             
             stats = pso_algo.run()['pso']
 
         # print(f'Alpha = {alpha}, T1 = {args.T1}, Particels reinit {args.particle_reinit}: {np.array(stats).mean()} +- {np.array(stats).std()}')
-        results = results.append({'T1': args.T1, 'Alpha': alpha, 'Dataset': args.dataset, 'LogLikelihood, mean': np.array(stats).mean(), 'LogLikelihood, std': np.array(stats).std()}, ignore_index=True)
+        res_dict = {'T1': args.T1, 'Alpha': alpha, 'Dataset': args.dataset, 'LogLikelihood, mean': np.array(stats).mean(), 'LogLikelihood, std': np.array(stats).std()}
+        print(res_dict)
+        results = results.append(res_dict, ignore_index=True)
     print('Results: ')
     print(results)
     now = datetime.datetime.now()
