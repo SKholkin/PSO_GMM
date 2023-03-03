@@ -11,10 +11,19 @@ import pandas as pd
 import numpy as np
 import datetime
 from tqdm import tqdm
+from sklearn.mixture import GaussianMixture
 
 def load_dataset(dataset_name):
-    return load_seg_data()
-    pass
+    if dataset_name == 'seg':
+        return load_seg_data()
+    elif dataset_name == 'breast_cancer':
+        return load_breast_cancer()
+    elif dataset_name == 'landsat':
+        return load_satelite_dataset()
+    elif os.path.exists(dataset_name):
+        return load_synthetic_dataset(dataset_name)
+        
+    raise ValueError('Wrong dataset name')
 
 if __name__ == "__main__":
     parser = ArgumentParser(
@@ -33,20 +42,23 @@ if __name__ == "__main__":
 
     results = pd.DataFrame(columns=['T1', 'LogLikelihood, mean', 'LogLikelihood, std', 'Alpha', 'Dataset'])
 
-    for alpha in args.a:
-        stats = []
-        print(f'Alpah: {alpha}')
+    results_matrix = np.zeros([args.n_runs, len(args.a)])
+
+    gmms_start = [GaussianMixture(n_components=config.n_components, covariance_type='full', n_init=config.n_particles, max_iter=config.T2 * config.T1,  init_params='k-means++', verbose=False, verbose_interval=1) for i in range(args.n_runs)]
+    for gmm in gmms_start:
+        gmm.fit(data)
+
+    for j, alpha in enumerate(args.a):
+        print(f'Alpha: {alpha}')
         for i in tqdm(list(range(args.n_runs))):
             config.eigvals_coef = alpha
             config.T1 = args.T1
             config.particle_reinit = args.particle_reinit
             
-            pso_algo = PSOEigen(data, config, verbose=False)
+            pso_algo = PSOEigen(data, config, verbose=False, gmm_start=gmms_start[i])
             
-            stats = pso_algo.run()['pso']
-
-        # print(f'Alpha = {alpha}, T1 = {args.T1}, Particels reinit {args.particle_reinit}: {np.array(stats).mean()} +- {np.array(stats).std()}')
-        res_dict = {'T1': args.T1, 'Alpha': alpha, 'Dataset': args.dataset, 'LogLikelihood, mean': np.array(stats).mean(), 'LogLikelihood, std': np.array(stats).std()}
+            results_matrix[i, j] = pso_algo.run()['pso']
+        res_dict = {'T1': args.T1, 'Alpha': alpha, 'Dataset': args.dataset, 'LogLikelihood, mean': np.array(results_matrix[i]).mean(), 'LogLikelihood, std': np.array(results_matrix[i]).std()}
         print(res_dict)
         results = results.append(res_dict, ignore_index=True)
     print('Results: ')

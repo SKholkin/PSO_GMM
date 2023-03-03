@@ -34,11 +34,12 @@ class PSOConfig(Dict):
         
 
 class PSOEigen:
-    def __init__(self, data, config: PSOConfig, verbose=False):
+    def __init__(self, data, config: PSOConfig, verbose=False, gmm_start=None):
         self.config = config
         self.n_particles = config.n_particles
         self.amplitude = config.amplitude
         self.amplitude = 0.001
+        self.gmm_start = gmm_start
 
         self.verbose = verbose
         self.n_components = config.n_components
@@ -70,9 +71,13 @@ class PSOEigen:
         self.global_fitness_score = -np.inf
         self.particle_trajectories = np.zeros((self.n_particles, self.T1))
 
-    def basic_gmm_init(self):
-        gmm = GaussianMixture(n_components=self.n_components, covariance_type='full', n_init=self.n_particles, max_iter=self.T2 * self.T1,  init_params='k-means++', verbose=self.verbose, verbose_interval=1)
-        gmm.fit(self.data)
+    def basic_gmm_init(self, gmm_start=None):
+        if gmm_start is not None:
+            gmm = gmm_start
+        else:
+            gmm = GaussianMixture(n_components=self.n_components, covariance_type='full', n_init=self.n_particles, max_iter=self.T2 * self.T1,  init_params='k-means++', verbose=self.verbose, verbose_interval=1)
+            gmm.fit(self.data)
+            
         weights = gmm.weights_
         means = gmm.means_
         
@@ -118,7 +123,8 @@ class PSOEigen:
     def run(self):
         with open(self.log_file, 'w+') as f:
             start = time.time()
-            weights, means, basic_prec_matr, gmm = self.basic_gmm_init()
+
+            weights, means, basic_prec_matr, gmm = self.basic_gmm_init(self.gmm_start)
 
             if self.verbose:
                 print("Time for GMM init: ", time.time() - start, ' sec')
