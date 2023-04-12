@@ -45,7 +45,7 @@ class EigenParticle:
             'eigenvalues_prec' : np.zeros((n_components, data_dim)),
             'givens_angles' : np.zeros((n_components, int(data_dim * (data_dim - 1) / 2)))
         }
-
+        
         self.random_init = True
         if self.random_init:
             self.basic_prec_matr = prec_matrix_list
@@ -54,7 +54,7 @@ class EigenParticle:
                 'means' : means + np.random.normal(0, self.means_coef * np.mean(means), size=(n_components, data_dim)),
                 'givens_angles' : np.random.uniform(-np.pi, np.pi, size=(n_components, int(data_dim * (data_dim - 1) / 2)))
             }
-            #print('Eigvals: ', [np.mean(np.linalg.eigvals(item)) for item in prec_matrix_list], ' vs ', eig_val_max)
+            # print('Eigvals: ', [np.mean(np.linalg.eigvals(item)) for item in prec_matrix_list], ' vs ', eig_val_max)
             
             self.position['eigenvalues_prec'] = np.array([np.random.uniform(0, np.mean(eig_val_max), size=data_dim) for i in range(self.n_components)])
         else:

@@ -84,7 +84,6 @@ def load_dataset(dataset_name):
         return load_synthetic_dataset(dataset_name)
     raise RuntimeError(f'Unknown dataset {dataset_name}. Please provide path to synthetic dataset file or correctly write real dataset name')
 
-
 def _givens_rotation_matrix_entries(a, b):
     """Compute matrix entries for Givens rotation.[[cos(phi), -sin(phi)], [sin(phi), cos(phi)]]"""
     r = hypot(a, b)
@@ -94,7 +93,6 @@ def _givens_rotation_matrix_entries(a, b):
     s = -b/r
 
     return (c, s)
-
 
 def QRGivens(A):
     if np.linalg.det(A) < 0:
@@ -169,6 +167,7 @@ def find_closest_spd(A):
     w, v  = np.linalg.eigh(A)
     w = w * (w > 0) + eps
     return v @ np.diag(w) @ v.T
+
 
 if __name__ == '__main__':
     data = load_digits_dataset()

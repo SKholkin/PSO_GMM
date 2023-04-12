@@ -74,7 +74,6 @@ def generate_from_GMM(weights, gaussian_params, n_samples):
         data.append(np.random.multivariate_normal(mean=gaussian_params[component]['mu'], cov=gaussian_params[component]['sigma'], size=1).squeeze())
     return np.array(data)
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate dataset')
 
@@ -98,6 +97,10 @@ if __name__ == '__main__':
         filename = f'Synthetic_dim_{dim}_n_samples_{n_samples}_n_comp_{n_components}_c_separation_{c_separation}.data'
 
     weights, gmm = generate_GaussianMixture(n_components=n_components, d=dim, c_separation=c_separation)
+    print(weights)
+    # print()
+    input()
+
     is_separated = True
     is_sigma_spd = True
     for i in range(n_components):

@@ -179,6 +179,8 @@ class PSOEigen:
 
                     # self.particles[j].set_params_after_em(new_weights, new_means, new_precisions, new_ll)
                     
+
+                    # Start
                     new_ll = self.particles[j].run_em(self.data, self.T2)
                     self.particle_trajectories[j, i] = new_ll
                     if self.verbose:
@@ -187,9 +189,10 @@ class PSOEigen:
                     if best_pso_em_score < new_ll:
                         best_pso_em_score = new_ll
                         best_particle = self.particles[j]
-                    # f.write('New LL: ' + str(new_ll) + '\n')
+
                 if self.verbose:
                     print("Time for GMM reinit: ", time.time() - start, ' sec')
+                # End (don)
                 
                 # for j in range(len(self.particles)):
                 #     new_ll = self.particles[j].calculate_LL(self.data)
@@ -206,12 +209,12 @@ class PSOEigen:
                     self.particles = [EigenParticle(self.n_components, self.data[0].shape[0], self.amplitude, weights, means, basic_prec_matr, data=self.data, means_coef=self.config.eigvals_coef, eig_val_max=self.config.eig_val_max) for i in range(self.n_particles)]
                     self.init_global_best()
 
-                # for i in range(len(self.particles)):
-                #     score = self.particles[i].calculate_LL(self.data)
-                #     if best_ll_after_transforn_score < score:
-                #         best_ll_after_transforn_score = score
+                for i in range(len(self.particles)):
+                    score = self.particles[i].calculate_LL(self.data)
+                    if best_ll_after_transforn_score < score:
+                        best_ll_after_transforn_score = score
 
-                #     f.write(f'Particle LL (regular step): {self.particles[i].calculate_LL(self.data)} \n')
+                    f.write(f'Particle LL (regular step): {self.particles[i].calculate_LL(self.data)} \n')
 
                 n_pso_updates = 30
                 for i in range(n_pso_updates):
