@@ -81,7 +81,7 @@ class PSO:
             if self.since_last_gb_change >= self.n_steps:
                 break
         
-            print(f'Step {step}: gb ll {self.gb_score}')
+        print(f'Step {step}: gb ll {self.gb_score}')
         return self.gb_score
     
 class GMMDiagonal(Particle):
@@ -96,7 +96,7 @@ class GMMDiagonal(Particle):
         self.pb, self.pb_score = None, -np.inf
         self.history = []
         self.em_iters = 0
-        
+
     def step(self):
         if self.pb is None:
             self.pb = self.copy()
@@ -119,7 +119,7 @@ class GMMDiagonal(Particle):
         var = self.state['var']
         weights = self.state['weights']
         
-        gmm = GaussianMixture(n_components=n_comp, covariance_type='diag', max_iter=0)
+        gmm = GaussianMixture(n_components=self.n_comp, covariance_type='diag', max_iter=0)
         
         cholesky = 1 / np.sqrt(var)
         gmm.weights_ = weights
