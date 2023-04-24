@@ -4,8 +4,35 @@ import pandas as pd
 import numpy as np
 from math import copysign, hypot
 from sklearn.datasets import load_digits
+import scipy
+import datetime
+import os
 
 real_dataset_names = ['breast_cancer', 'cloud']
+
+
+def load_nci9():
+    mat = scipy.io.loadmat("data/nci9.mat")
+    scaler = MinMaxScaler()
+    scaler.fit(mat['X'])
+    data = scaler.transform(mat['X'])
+    return data
+
+def load_texture_dataset():
+    file_name = 'data/texture.dat'
+    with open(file_name) as f:
+        texture_data = pd.DataFrame([item.split(',') for item in f.readlines()])
+    texture_data = texture_data.astype(float).to_numpy()[:, :-1]
+    print(texture_data.shape)
+
+    x_min, x_max = np.min(texture_data, axis=0), np.max(texture_data, axis=0)
+
+    texture_data = (texture_data - x_min) / (x_max - x_min)
+    scaler = MinMaxScaler()
+
+    # scaler.fit(texture_data)
+    # texture_data = scaler.transform(texture_data)
+    return texture_data
 
 def load_breast_cancer():
     bc_data_name = 'data/wdbc.data'
@@ -80,6 +107,13 @@ def load_dataset(dataset_name):
         return load_seg_data()
     if dataset_name == 'digits':
         return load_digits_dataset()
+    if dataset_name == 'texture':
+        return load_texture_dataset
+    if dataset_name == 'nci9':
+        return load_nci9()
+    if dataset_name == 'usps':
+        return load_usps_dataset()
+    
     if osp.isfile(dataset_name):
         return load_synthetic_dataset(dataset_name)
     raise RuntimeError(f'Unknown dataset {dataset_name}. Please provide path to synthetic dataset file or correctly write real dataset name')
@@ -168,6 +202,16 @@ def find_closest_spd(A):
     w = w * (w > 0) + eps
     return v @ np.diag(w) @ v.T
 
+def save_results_string(result_string, addition=None):
+    if addition is None:
+        addition = ''
+    else:
+        addition = '_' + addition
+    now = datetime.datetime.now()
+    now_str = now.strftime("%d_%m_%Y_%H_%M_%S")
+    if not os.path.exists('exp_results'):
+        os.mkdir('exp_results')
+    results_save_name = f'Experiment_{now_str}{addition}'
 
-if __name__ == '__main__':
-    data = load_digits_dataset()
+    with open(os.path.join('exp_results', results_save_name), 'w+') as f:
+        f.write(result_string)

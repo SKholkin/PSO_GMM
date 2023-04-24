@@ -5,8 +5,9 @@ from sklearn.mixture import GaussianMixture
 from sklearn.metrics import mutual_info_score, silhouette_score
 from sklearn.cluster import KMeans
 
-
 from copy import deepcopy
+
+from utils import save_results_string
 
 class Particle:
     def __init__(self):
@@ -55,8 +56,10 @@ class PSO:
             
     def check_for_mutation(self):
         self.gb_score
+        scores = []
         for i, particle in enumerate(self.particles):
             p_score = particle.score()
+            scores.append(p_score)
             if np.absolute(p_score - self.gb_score) < 5e-2:
                 particle.mutation()
         
@@ -67,14 +70,11 @@ class PSO:
                 particle.step()
                 particle.finetune()
                 particle.check_pb()
-#                 print(f'{i} score {particle.score()}')
-#             print(f'Step {step} {[item.score() for item in self.particles]}')
             self.check_gb()
-#             print(f'Step {step}: gb ll {self.gb_score}')
             self.check_for_mutation()
+        
+        print(f'Step {step}: gb ll {self.gb_score}')
         return self.gb_score
-        
-        
     
 class GMMDiagonal(Particle):
     def __init__(self, data, n_comp, init_state, intertia, r_1, r_2):
@@ -87,6 +87,7 @@ class GMMDiagonal(Particle):
         self.n_comp = n_comp
         self.pb, self.pb_score = None, -np.inf
         self.history = []
+        self.em_iters = 0
         
     def step(self):
         if self.pb is None:
@@ -130,6 +131,7 @@ class GMMDiagonal(Particle):
         
         gmm = GaussianMixture(n_components=self.n_comp, covariance_type='diag', weights_init=weights, means_init=means, precisions_init=prec, max_iter=100,  verbose=0, verbose_interval=1)
         gmm.fit(self.data)
+        self.em_iters += gmm.n_iter_
         
         weights = gmm.weights_
         means = gmm.means_
@@ -144,11 +146,12 @@ class GMMDiagonal(Particle):
     def copy(self):
         state_copy = deepcopy(self.state)
         return GMMDiagonal(self.data, self.n_comp, state_copy, self.intertia, self.r_1, self.r_2)
-        
+    
+
 def create_diag_particles(n_particles, n_comp, data):
     particles = []
     for i in range(n_particles):
-        gmm = GaussianMixture(n_components=n_comp, covariance_type='diag', max_iter=100)
+        gmm = GaussianMixture(n_components=n_comp, covariance_type='diag', max_iter=100, n_init=1)
         gmm.fit(data)
         
         weights = gmm.weights_
@@ -159,17 +162,47 @@ def create_diag_particles(n_particles, n_comp, data):
         
     return [GMMDiagonal(data, n_comp, state, 0.4, 0.4, 0.6) for state in particles]
 
-n_runs = 1
-scores = []
-data = load_dataset('breast_cancer')
-for n in range(n_runs):
-    n_comp = 10
-    particles = create_diag_particles(50, n_comp, data)
-    pso = PSO(particles, 10)
-    best_score = pso.run()
-    scores.append(best_score)
-    print(best_score)
 
-gmm = GaussianMixture(n_components=n_comp, covariance_type='diag', max_iter=100, n_init=500)
-gmm.fit(data)
-print(f'{np.mean(scores)} +- {np.std(scores)} VS\n{gmm.score(data)}')
+from argparse import ArgumentParser
+
+if __name__ == '__main__':
+    parser = ArgumentParser(
+                    prog = 'Experiment')
+    parser.add_argument('-N', type=int, help='Number of particles')
+    parser.add_argument('-M', type=int, help='Number of PSO steps for dynamic stopping')
+    parser.add_argument('--dataset', type=str, help='Dataset name or path to dataset')
+    parser.add_argument('--n_comp', type=int, help='Number of components (clusters)')
+    parser.add_argument('--n_runs', type=int, help='Number of runs')
+
+    args = parser.parse_args()
+    print('Args:\n' + str(args))
+    dataset_name = args.dataset
+    n_runs = args.n_runs
+    data = load_dataset(dataset_name)
+    n_comp = args.n_comp
+    M = args.M
+    N = args.N
+
+    desc = f'{dataset_name}_{n_comp}_comp_N_{N}_M_{M}'
+
+    scores = []
+    for n in range(n_runs):
+        particles = create_diag_particles(N, n_comp, data)
+        pso = PSO(particles, M)
+        best_score = pso.run()
+        scores.append(best_score)
+        print(best_score)
+
+    result_string = f'PSO + EM: {np.mean(scores)} +- {np.std(scores)}\n'
+
+    scores = []
+    for n in range(n_runs):
+        gmm = GaussianMixture(n_components=n_comp, covariance_type='diag', max_iter=100, n_init=N)
+        gmm.fit(data)
+        scores.append(gmm.score(data))
+
+    result_string += f'EM: {np.mean(scores)} +- {np.std(scores)}'
+
+    print(result_string)
+
+    save_results_string(result_string, desc)
