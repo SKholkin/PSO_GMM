@@ -41,15 +41,18 @@ class PSO:
         self.particles = particles
         self.n_steps = n_steps
         self.gb_particle, self.gb_score = None, -np.inf
+        self.since_last_gb_change = 0
         self.check_gb()
         
     def check_gb(self):
+        self.since_last_gb_change += 1
         for particle in self.particles:
             score = particle.score()
             if score > self.gb_score:
                 self.gb_score = score
                 self.gb_particle = particle.copy()
-                
+                self.since_last_gb_change = 0
+            
         gb = self.gb_particle.copy()
         for particle in self.particles:
             particle.set_gb(gb)
@@ -65,15 +68,20 @@ class PSO:
         
     def run(self):
         print(f'Init: gb ll {self.gb_score}')
-        for step in range(self.n_steps):
+        step = 0
+        while True:
+        # for step in range(self.n_steps):
             for i, particle in enumerate(self.particles):
                 particle.step()
                 particle.finetune()
                 particle.check_pb()
             self.check_gb()
             self.check_for_mutation()
+            step += 1
+            if self.since_last_gb_change >= self.n_steps:
+                break
         
-        print(f'Step {step}: gb ll {self.gb_score}')
+            print(f'Step {step}: gb ll {self.gb_score}')
         return self.gb_score
     
 class GMMDiagonal(Particle):
@@ -103,11 +111,9 @@ class GMMDiagonal(Particle):
         
     def mutation(self):
         self.state['means'] += 0.01 * np.random.normal(size=self.state['means'].shape)
-#         print(np.mean(self.state['means']))
         self.state['var'] += 0.1 * np.random.uniform() * self.state['var']
         
     def score(self):
-        # create sklearn.mixture.Gmm from self.state
         
         means = self.state['means']
         var = self.state['var']
@@ -201,7 +207,7 @@ if __name__ == '__main__':
         gmm.fit(data)
         scores.append(gmm.score(data))
 
-    result_string += f'EM: {np.mean(scores)} +- {np.std(scores)}'
+    result_string += f'EM: {np.mean(scores)} +- {np.std(scores)}\n'
 
     print(result_string)
 
