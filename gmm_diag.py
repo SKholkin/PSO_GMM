@@ -85,7 +85,7 @@ class PSO:
         return self.gb_score
     
 class GMMDiagonal(Particle):
-    def __init__(self, data, n_comp, init_state, intertia, r_1, r_2):
+    def __init__(self, data, n_comp, init_state, intertia, r_1, r_2, mutation_coefs=(0.01, 0.1)):
         super(Particle, self).__init__()
         self.state = init_state
         self.intertia, self.r_1, self.r_2 = intertia, r_1, r_2
@@ -95,6 +95,7 @@ class GMMDiagonal(Particle):
         self.n_comp = n_comp
         self.pb, self.pb_score = None, -np.inf
         self.history = []
+        self.mutation_coefs = mutation_coefs
         self.em_iters = 0
 
     def step(self):
@@ -110,8 +111,8 @@ class GMMDiagonal(Particle):
         self.state['weights'] = self.state['weights'] / np.sum(self.state['weights'])
         
     def mutation(self):
-        self.state['means'] += 0.01 * np.random.normal(size=self.state['means'].shape)
-        self.state['var'] += 0.1 * np.random.uniform() * self.state['var']
+        self.state['means'] += self.mutation_coefs[0] * np.random.normal(size=self.state['means'].shape)
+        self.state['var'] += self.mutation_coefs[1] * np.random.uniform() * self.state['var']
         
     def score(self):
         

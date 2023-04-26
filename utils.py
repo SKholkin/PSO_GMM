@@ -92,6 +92,7 @@ def load_usps_dataset():
             X_te = test.get('data')[:]
             y_te = test.get('target')[:]
     print(np.array(X_tr).shape)
+    return np.array(X_tr)
 
 def load_digits_dataset():
     return load_digits().data
@@ -108,7 +109,7 @@ def load_dataset(dataset_name):
     if dataset_name == 'digits':
         return load_digits_dataset()
     if dataset_name == 'texture':
-        return load_texture_dataset
+        return load_texture_dataset()
     if dataset_name == 'nci9':
         return load_nci9()
     if dataset_name == 'usps':
