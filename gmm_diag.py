@@ -200,7 +200,7 @@ if __name__ == '__main__':
         scores.append(best_score)
         print(best_score)
 
-    result_string = f'PSO + EM: {np.mean(scores)} +- {np.std(scores)}\n'
+    result_string = f'PSO + EM: {np.mean(scores):.3f} +- {np.std(scores):.3f}\n'
 
     scores = []
     for n in range(n_runs):
@@ -208,8 +208,8 @@ if __name__ == '__main__':
         gmm.fit(data)
         scores.append(gmm.score(data))
 
-    result_string += f'EM: {np.mean(scores)} +- {np.std(scores)}\n'
+    result_string += f'EM: {np.mean(scores):.3f} +- {np.std(scores):.3f}\n'
 
     print(result_string)
-
+    
     save_results_string(result_string, desc)

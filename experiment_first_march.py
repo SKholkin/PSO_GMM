@@ -29,11 +29,13 @@ if __name__ == "__main__":
     parser = ArgumentParser(
                     prog = 'Experiment')
     parser.add_argument('-a', nargs='+', type=float, help='Alphas for experiment')
-    parser.add_argument('-T1', type=int, help='Number of EM + PSO rounds')
     parser.add_argument('--dataset', type=str, help='Dataset name or path to dataset')
     parser.add_argument('--particle_reinit', action=BooleanOptionalAction, help='Are particles being reinit each EM + PSO round')
     parser.add_argument('--n_runs', type=int, help='Number of runs')
     parser.add_argument('--config', type=str, help='PAth to config for PSO')
+    parser.add_argument('-N', type=int, help='n particles')
+    parser.add_argument('-M', type=int, help='Number of PSO + EM iterations')
+    parser.add_argument('--n_comp', type=int, help='Number of components')
 
     args = parser.parse_args()
     print(args)
@@ -44,9 +46,16 @@ if __name__ == "__main__":
 
     results_matrix = np.zeros([args.n_runs, len(args.a)])
 
-    gmms_start = [GaussianMixture(n_components=config.n_components, covariance_type='full', n_init=config.n_particles, max_iter=config.T2 * config.T1,  init_params='k-means++', verbose=False, verbose_interval=1) for i in range(args.n_runs)]
+    args.T2 = 100
+    args.T1 = args.M
+    config.n_particles = args.N
+    config.n_components = args.n_comp
+
+    gmms_start = [GaussianMixture(n_components=config.n_components, covariance_type='full', n_init=config.n_particles, max_iter=args.T2 * args.T1,  init_params='k-means++', verbose=False, verbose_interval=1) for i in range(args.n_runs)]
     for gmm in gmms_start:
         gmm.fit(data)
+
+    print(f'Initial GMM res: {[gmm.score(data)for gmm in gmms_start]}\nMean: {np.mean([gmm.score(data)for gmm in gmms_start]):.3f} +- {np.std([gmm.score(data)for gmm in gmms_start]):.3f}')
 
     for j, alpha in enumerate(args.a):
         print(f'Alpha: {alpha}')
@@ -58,9 +67,13 @@ if __name__ == "__main__":
             pso_algo = PSOEigen(data, config, verbose=False, gmm_start=gmms_start[i])
             
             results_matrix[i, j] = pso_algo.run()['pso']
-        res_dict = {'T1': args.T1, 'Alpha': alpha, 'Dataset': args.dataset, 'LogLikelihood, mean': np.array(results_matrix[i]).mean(), 'LogLikelihood, std': np.array(results_matrix[i]).std()}
+        res_dict = {'T1': args.T1, 'Alpha': alpha, 'Dataset': args.dataset, 'LogLikelihood, mean': np.array(results_matrix[:, j]).mean(), 'LogLikelihood, std': np.array(results_matrix[:, j]).std()}
         print(res_dict)
         results = results.append(res_dict, ignore_index=True)
+
+    res_dict_em = {'T1': args.T1, 'Alpha': None, 'Dataset': args.dataset, 'LogLikelihood, mean': np.array([gmm.score(data)for gmm in gmms_start]).mean(), 'LogLikelihood, std': np.array([gmm.score(data)for gmm in gmms_start]).std()}
+    results = results.append(res_dict_em, ignore_index=True)
+
     print('Results: ')
     print(results)
     now = datetime.datetime.now()

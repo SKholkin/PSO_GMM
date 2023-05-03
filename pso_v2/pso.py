@@ -155,31 +155,7 @@ class PSOEigen:
                     new_ll = self.particles[j].calculate_LL(self.data)
                     f.write(f'Particle LL Before EM: {self.particles[j].calculate_LL(self.data)} \n')
                 for j in range(len(self.particles)):
-                    ## replace 
-                    # basic_prec_matr = self.particles[j].basic_prec_matr
-                    # prec_matrcies = np.zeros_like(basic_prec_matr)
-                    # # construct prec matr addition
-                    # for i in range(self.n_components):
-                    #     v = Givens2Matrix(np.expand_dims(self.particles[j].position['givens_angles'][i], axis=1))
-                    #     addition = v @ np.diag(self.particles[j].position['eigenvalues_prec'][i]) @ v.T
-                    #     prec_matrcies[i] = find_closest_spd(basic_prec_matr[i] + addition)
-
-                    # sigmas = precisions_to_sigmas_and_vice_versa(prec_matrcies)
-                    # gmm = GMM(weights.shape[0], dim=self.data.shape[1], init_mu=self.particles[j].position['means']
-                    #           ,init_sigma=sigmas, init_pi=self.particles[j].position['weights'])
-
-                    # gmm.init_em(self.data)
-
-                    # new_ll, final_iter = gmm.run_em(self.T2)
-                    # print('Final iter for scattered particle: ', final_iter, 'LL: ', new_ll)
-
-                    # new_weights = gmm.pi
-                    # new_means = gmm.mu
-                    # new_precisions = precisions_to_sigmas_and_vice_versa(gmm.sigma)
-
-                    # self.particles[j].set_params_after_em(new_weights, new_means, new_precisions, new_ll)
-                    
-
+                
                     # Start
                     new_ll = self.particles[j].run_em(self.data, self.T2)
                     self.particle_trajectories[j, i] = new_ll
@@ -187,7 +163,7 @@ class PSOEigen:
                         print(f'Particle {j} New LL', new_ll)
 
                     if best_pso_em_score < new_ll:
-                        best_pso_em_score = new_ll
+                        best_pso_em_score = new_ll  
                         best_particle = self.particles[j]
 
                 if self.verbose:
@@ -211,12 +187,10 @@ class PSOEigen:
 
                 for i in range(len(self.particles)):
                     score = self.particles[i].calculate_LL(self.data)
-                    if best_ll_after_transforn_score < score:
-                        best_ll_after_transforn_score = score
 
                     f.write(f'Particle LL (regular step): {self.particles[i].calculate_LL(self.data)} \n')
 
-                n_pso_updates = 30
+                n_pso_updates = 1
                 for i in range(n_pso_updates):
                     c_1 = np.random.uniform(0, 1)
                     c_2 = np.random.uniform(0, 1)
@@ -238,7 +212,7 @@ class PSOEigen:
                     if changed:
                         for particle in self.particles:
                             particle.reorder_wrt(self.global_best.position)
-
+            
             # run reference EM
 
             f.write('Personal bests:')
