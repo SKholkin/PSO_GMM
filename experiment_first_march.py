@@ -51,6 +51,12 @@ if __name__ == "__main__":
     config.n_particles = args.N
     config.n_components = args.n_comp
 
+    now = datetime.datetime.now()
+    now_str = now.strftime("%d_%m_%Y_%H_%M_%S")
+    if not os.path.exists('exp_results'):
+        os.mkdir('exp_results')
+    results_save_name = f'Experiment_{args.dataset}_NComp_{args.n_comp}_N_{args.N}_M_{args.M}_{now_str}.csv'
+
     gmms_start = [GaussianMixture(n_components=config.n_components, covariance_type='full', n_init=config.n_particles, max_iter=args.T2 * args.T1,  init_params='k-means++', verbose=False, verbose_interval=1) for i in range(args.n_runs)]
     for gmm in gmms_start:
         gmm.fit(data)
@@ -67,19 +73,15 @@ if __name__ == "__main__":
             pso_algo = PSOEigen(data, config, verbose=False, gmm_start=gmms_start[i])
             
             results_matrix[i, j] = pso_algo.run()['pso']
-        res_dict = {'T1': args.T1, 'Alpha': alpha, 'Dataset': args.dataset, 'LogLikelihood, mean': np.array(results_matrix[:, j]).mean(), 'LogLikelihood, std': np.array(results_matrix[:, j]).std()}
+        res_dict = {'M': args.T1, 'Alpha': alpha, 'Dataset': args.dataset, 'LogLikelihood, mean': np.array(results_matrix[:, j]).mean(), 'LogLikelihood, std': np.array(results_matrix[:, j]).std()}
         print(res_dict)
         results = results.append(res_dict, ignore_index=True)
+        results.to_csv(os.path.join('exp_results', results_save_name))
 
-    res_dict_em = {'T1': args.T1, 'Alpha': None, 'Dataset': args.dataset, 'LogLikelihood, mean': np.array([gmm.score(data)for gmm in gmms_start]).mean(), 'LogLikelihood, std': np.array([gmm.score(data)for gmm in gmms_start]).std()}
+    res_dict_em = {'M': args.T1, 'Alpha': None, 'Dataset': args.dataset, 'LogLikelihood, mean': np.array([gmm.score(data)for gmm in gmms_start]).mean(), 'LogLikelihood, std': np.array([gmm.score(data)for gmm in gmms_start]).std()}
     results = results.append(res_dict_em, ignore_index=True)
-
+    
     print('Results: ')
     print(results)
-    now = datetime.datetime.now()
-    now_str = now.strftime("%d_%m_%Y_%H_%M_%S")
-    if not os.path.exists('exp_results'):
-        os.mkdir('exp_results')
-    results_save_name = f'Experiment_{now_str}'
     results.to_csv(os.path.join('exp_results', results_save_name))
     
