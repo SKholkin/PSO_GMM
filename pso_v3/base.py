@@ -67,6 +67,9 @@ class Particle:
         
     def mutation(self):
         raise NotImplementedError('Mutation is not implemented')
+    
+    def get_best_score(self):
+        return self.gb_score
         
 class PSO:
     def __init__(self, particles, n_steps):
@@ -114,6 +117,6 @@ class PSO:
             if self.since_last_gb_change >= self.n_steps:
                 break
         
-        print(f'Step {step}: gb ll {self.gb_score}')
+            print(f'Step {step}: gb ll {self.gb_score}')
         return self.gb_score
     

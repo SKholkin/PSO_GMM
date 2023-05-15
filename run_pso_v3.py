@@ -95,7 +95,7 @@ if __name__ == '__main__':
         res_dict_pso = {'N': n_particles, 'M': args.M, 'Dataset': args.dataset, 'LogLikelihood': pso_res, 'PSO': True}
         res_dict_em = {'N': n_particles, 'M': None, 'Dataset': args.dataset, 'LogLikelihood': em_res, 'PSO': False}
 
-        results = results._append(res_dict_pso, ignore_index=True)  
+        results = results._append(res_dict_pso, ignore_index=True)
         results = results._append(res_dict_em, ignore_index=True)
 
         results.to_csv(os.path.join('exp_results', results_save_name))

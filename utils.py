@@ -186,7 +186,7 @@ def Givens2Matrix(phi_list):
         
     return ret_val
         
-def eigh_with_fixed_direction_range(spd_matr):
+def eigh_with_fixed_direction_range(spd_matr, descending=True):
     eigenvalues, v = np.linalg.eigh(spd_matr)
 
     base_vector = np.ones_like(v[0])
@@ -194,14 +194,29 @@ def eigh_with_fixed_direction_range(spd_matr):
         cos_phi = np.dot(base_vector, v[:, i])
         if cos_phi > 0:
             v[:, i] = -v[:, i]
-
+    if descending:
+        sort_ind = np.argsort(-np.abs(eigenvalues))
+        return eigenvalues[sort_ind], v[:, sort_ind]
     return eigenvalues, v
+
+def add_zeros_to_square(V):
+    dim, rank = V.shape[0], V.shape[1]
+    ret_val = np.zeros([dim, dim])
+    ret_val[:, :rank] = V
+    return ret_val
 
 def find_closest_spd(A):
     eps = 1e-05
     w, v  = np.linalg.eigh(A)
     w = w * (w > 0) + eps
     return v @ np.diag(w) @ v.T
+
+def eigh(A, descending=True):
+    eigvals, eigvecs = np.linalg.eigh(A)
+    if descending:
+        sort_ind = np.argsort(-np.abs(eigvals))
+        return eigvals[sort_ind], eigvecs[:, sort_ind]
+    return eigvals, eigvecs
 
 def save_results_string(result_string, addition=None):
     if addition is None:

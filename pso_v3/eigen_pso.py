@@ -46,6 +46,12 @@ class EigenParticle(Particle):
         gmmstate = GMMState.from_gmm(gmm)
         self.position = gmmstate.to_eigen()
 
+    def to_gmm(self):
+        prec_matrcies = self.get_prec_matrices(self.position)
+        gmm = GaussianMixture(n_components=self.position['weights'].shape[0], covariance_type='full', weights_init=self.position['weights'], means_init=self.position['means'], precisions_init=prec_matrcies, verbose=0, verbose_interval=1)
+        gmm.fit(self.data)
+        return gmm
+
     def pso_step(self):
 
         c_1, c_2 = np.random.uniform(), np.random.uniform()
@@ -144,21 +150,19 @@ class EigenPSO(PSO):
         gb = self.gb_position.copy()
         for particle in self.particles:
             particle.set_gb(gb)
-
+            
             # reorder wrt new GB
             particle.position = EigenParticle.reorder_wrt(particle.position, gb)
             particle.person_best = EigenParticle.reorder_wrt(particle.person_best, gb)
 
-
 def gmm_init_states(data, n_comp, n_particles):
     ret_val = []
+    scores = []
     for i in range(n_particles):
         gmm = GaussianMixture(n_comp, covariance_type='full')
         gmm.fit(data)
+        scores.append(gmm.score(data))
         init_state = GMMState.from_gmm(gmm)
         ret_val.append(init_state)
 
-    return ret_val
-
-def gmm_scatter_around_best_init_states(data, n_comp, n_particles):
-    raise NotImplementedError
+    return ret_val, scores
